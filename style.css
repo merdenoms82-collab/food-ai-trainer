@@ -1,26 +1,25 @@
-/* ===== PROFESSIONAL STYLES ===== */
-:root {
-    --primary: #22c55e;
-    --primary-gradient: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
-    --secondary-gradient: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-    --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    --info-gradient: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-    
-    --glass-bg: rgba(255, 255, 255, 0.12);
-    --glass-border: rgba(255, 255, 255, 0.18);
-    --glass-blur: 20px;
-    --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    
-    --radius-sm: 12px;
-    --radius-md: 16px;
-    --radius-lg: 20px;
-    --radius-xl: 28px;
-    --radius-full: 9999px;
-    
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bouncy: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* ===== DarsNest Dark Mode v1 (LOCKED) ===== */
+:root{
+  /* Colors */
+  --bg: #0B0F1A;
+  --surface-1: #121826;
+  --surface-2: #1A2235;
+  --divider: #273046;
+
+  --text: #F1F5F9;
+  --text-2: #9CA3AF;
+
+  /* Accents (restricted use) */
+  --savings: #22C55E;      /* ONLY for savings / positive totals */
+  --restaurant: #EF4444;   /* ONLY for restaurant price / loss */
+  
+  /* Interaction */
+  --radius: 4px;           /* max radius, sharp system */
+  --tap: 120ms cubic-bezier(.2,.8,.2,1);
+  --ease: 180ms cubic-bezier(.2,.8,.2,1);
+
+  /* Shadows (subtle, premium) */
+  --shadow-1: 0 8px 24px rgba(0,0,0,.35);
 }
 
 * {
