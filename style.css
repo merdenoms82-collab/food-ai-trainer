@@ -1,26 +1,31 @@
-/* ===== PROFESSIONAL STYLES ===== */
+/* ===== DarsNest Dark Mode v1 (LOCKED) ===== */
 :root {
-    --primary: #22c55e;
-    --primary-gradient: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
-    --secondary-gradient: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%);
-    --danger-gradient: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-    --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
-    --info-gradient: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-    
-    --glass-bg: rgba(255, 255, 255, 0.12);
-    --glass-border: rgba(255, 255, 255, 0.18);
-    --glass-blur: 20px;
-    --glass-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    
-    --radius-sm: 12px;
-    --radius-md: 16px;
-    --radius-lg: 20px;
-    --radius-xl: 28px;
-    --radius-full: 9999px;
-    
-    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-bouncy: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* ===== DarsNest Dark Mode v1 (LOCKED) ===== */
+  --bg: #0B0F1A;
+  --surface-1: #121826;     /* Primary Surface */
+  --surface-2: #1A2235;     /* Secondary Surface */
+  --divider: #273046;
+
+  --text: #F1F5F9;
+  --text-muted: #9CA3AF;
+
+  --savings: #22C55E;       /* RESERVED for savings only */
+  --loss: #EF4444;          /* Restaurant price */
+
+  --radius-sm: 4px;
+  --radius-md: 4px;
+  --radius-lg: 4px;
+  --radius-xl: 4px;
+
+  --shadow-soft: 0 10px 30px rgba(0,0,0,0.35);
+
+  /* Backward-compatibility aliases */
+  --text-2: var(--text-muted);
+  --restaurant: var(--loss);
+  --radius: 4px;
+  --tap: 120ms cubic-bezier(.2,.8,.2,1);
+  --ease: 180ms cubic-bezier(.2,.8,.2,1);
+  --shadow-1: var(--shadow-soft);
 }
 
 * {
@@ -184,15 +189,16 @@ html, body {
 
 /* Header */
 .app-header {
-    height: 70px;
-    padding: 0 20px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: rgba(15, 23, 42, 0.7);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-    position: relative;
-    z-index: 100;
+  height: 70px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--divider);
+  position: relative;
+  z-index: 100;
 }
 
 .logo {
@@ -202,15 +208,16 @@ html, body {
 }
 
 .logo-icon {
-    width: 44px;
-    height: 44px;
-    background: var(--primary-gradient);
-    border-radius: var(--radius-md);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.2rem;
+  width: 44px;
+  height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--divider);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  font-size: 1.2rem;
 }
 
 .logo-text {
@@ -229,17 +236,17 @@ html, body {
 }
 
 .header-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: var(--radius-full);
-    background: rgba(255, 255, 255, 0.1);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    color: white;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: var(--transition-smooth);
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  background: var(--surface-2);
+  border: 1px solid var(--divider);
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
 }
 
 .header-btn:active {
@@ -249,15 +256,15 @@ html, body {
 
 /* Tab Bar */
 .tab-bar {
-    height: 75px;
-    background: rgba(15, 23, 42, 0.8);
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    position: relative;
-    z-index: 100;
+  height: 75px;
+  background: var(--surface-2);
+  border-top: 1px solid var(--divider);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  position: relative;
+  z-index: 100;
 }
 
 .tab-item {
