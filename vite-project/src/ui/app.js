@@ -1,3 +1,5 @@
+import { config } from "../engine/index.js"; 
+import { renderSelectionGrid } from "./SelectionGrid.js";
 /* =========================================================
    DarsNest AI Kitchen OS — script.js (UI Core v1)
    - Navigation (tabs -> pages)
@@ -20,8 +22,8 @@
  *
  * If you leave these blank, app runs in LOCAL mode.
  */
-const SUPABASE_URL = "";     // <-- paste your Project URL
-const SUPABASE_ANON_KEY = ""; // <-- paste your anon public key
+const SUPABASE_URL = config.supabaseUrl;
+const SUPABASE_ANON_KEY = config.supabaseAnonKey;
 
 /**
  * We’ll use a simple “device user id” until you add real auth.
@@ -437,9 +439,15 @@ function computeReadiness(recipe) {
   const total = recipe.ingredients.length || 1;
   return Math.round((have / total) * 100);
 }
-
 function renderRecipesSelectionGrid() {
   if (!dom.recipesGrid) return;
+  // TEMP: Static Selection Mode mount (UI-only)
+  const USE_STATIC_SELECTION_GRID = true;
+
+  if (USE_STATIC_SELECTION_GRID) {
+    dom.recipesGrid.innerHTML = renderSelectionGrid();
+    return;
+ }
 
   const cards = appState.recipes.map(r => {
     const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));

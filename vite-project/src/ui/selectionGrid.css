@@ -1,0 +1,148 @@
+/* src/ui/selectionGrid.css */
+/* Dark Mode v1 only. No gradients. No green except savings. No red except restaurant. 4px max radius. */
+
+:root{
+  --dn-bg: #0B0F1A;
+  --dn-surface: #121826;
+  --dn-surface-2: #1A2235;
+  --dn-text: #F1F5F9;
+  --dn-muted: #9CA3AF;
+  --dn-divider: #273046;
+
+  --dn-savings: #22C55E;   /* ONLY for savings */
+  --dn-restaurant: #EF4444;/* ONLY for restaurant price */
+
+  --dn-r: 4px;
+}
+
+/* Page section wrapper */
+.dn-selection{
+  background: var(--dn-bg);
+  padding: 24px;            /* outer padding locked */
+}
+
+/* 2-column grid locked */
+.dn-selection__grid{
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;                /* gap locked */
+}
+
+/* Card */
+.dn-card{
+  background: var(--dn-surface);
+  border: 1px solid var(--dn-divider);
+  border-radius: var(--dn-r);
+  overflow: hidden;         /* keeps image sharp */
+  aspect-ratio: 4 / 5;      /* ratio locked */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Image (top 50% of card) */
+.dn-card__imgWrap{
+  width: 100%;
+  height: 50%;
+  background: var(--dn-surface-2);
+}
+
+.dn-card__img{
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Body */
+.dn-card__body{
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 50%;
+}
+
+/* Recipe Name */
+.dn-card__title{
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dn-text);
+  line-height: 1.2;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Rows */
+.dn-card__row{
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.dn-card__label{
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dn-muted);
+}
+
+.dn-card__value{
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--dn-text);
+}
+
+/* Restaurant price (RED ONLY HERE) */
+.dn-card__value--restaurant{
+  color: var(--dn-restaurant);
+}
+
+/* Savings (GREEN ONLY HERE) */
+.dn-card__savings{
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--dn-savings);
+  letter-spacing: -0.2px;
+  line-height: 1.1;
+}
+
+.dn-card__savingsNum{
+  font-weight: 800;
+}
+
+/* Readiness text (NOT green) */
+.dn-card__readiness{
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--dn-text);
+}
+
+/* Add to Week button (neutral — no green/red) */
+.dn-card__btn{
+  margin-top: auto;          /* pins button to bottom of body */
+  height: 40px;
+  border-radius: var(--dn-r);
+  border: 1px solid var(--dn-divider);
+  background: var(--dn-surface-2);
+  color: var(--dn-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Mobile-first: keep 2-column, tighten padding slightly */
+@media (max-width: 480px){
+  .dn-selection{
+    padding: 24px; /* stays locked */
+  }
+  .dn-card__title{
+    font-size: 14px;
+  }
+  .dn-card__savings{
+    font-size: 17px;
+  }
+}

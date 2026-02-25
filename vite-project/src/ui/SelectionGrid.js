@@ -1,0 +1,125 @@
+// src/ui/SelectionGrid.js
+// UI-only static build. No engine imports. No Supabase. No state mutation.
+// Renders a locked 2-column Selection Mode grid from mock selector-style data.
+
+import "./selectionGrid.css";
+
+/**
+ * Mock selector-style data (already “computed” upstream).
+ * UI must NOT calculate totals or mutate anything.
+ */
+const mockSelectionData = {
+  recipes: [
+    {
+      recipe_id: "r_001",
+      name: "Garlic Butter Chicken & Rice",
+      image_url:
+        "https://images.unsplash.com/photo-1604908176997-125f25cc500f?auto=format&fit=crop&w=1200&q=70",
+      restaurant_price: 18.0,
+      home_cost: 6.75,
+      savings: 11.25,
+      readiness_pct: 82,
+    },
+    {
+      recipe_id: "r_002",
+      name: "Beef Tacos (Weeknight)",
+      image_url:
+        "https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?auto=format&fit=crop&w=1200&q=70",
+      restaurant_price: 22.0,
+      home_cost: 8.5,
+      savings: 13.5,
+      readiness_pct: 64,
+    },
+    {
+      recipe_id: "r_003",
+      name: "Salmon Bowl (Simple)",
+      image_url:
+        "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=70",
+      restaurant_price: 24.0,
+      home_cost: 10.25,
+      savings: 13.75,
+      readiness_pct: 71,
+    },
+    {
+      recipe_id: "r_004",
+      name: "Turkey Chili (Big Batch)",
+      image_url:
+        "https://images.unsplash.com/photo-1555243896-c709bfa0b564?auto=format&fit=crop&w=1200&q=70",
+      restaurant_price: 20.0,
+      home_cost: 7.25,
+      savings: 12.75,
+      readiness_pct: 76,
+    },
+  ],
+};
+
+function escapeHtml(str) {
+  return String(str)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function money(n) {
+  // UI formatting only (not business logic)
+  const num = Number(n);
+  if (!Number.isFinite(num)) return "$0.00";
+  return `$${num.toFixed(2)}`;
+}
+
+/**
+ * Clean render function
+ * @returns {string} HTML
+ */
+export function renderSelectionGrid() {
+  const cards = mockSelectionData.recipes
+    .map((r) => {
+      return `
+        <article class="dn-card" data-recipe-id="${escapeHtml(r.recipe_id)}">
+          <!-- Image (top 50%) -->
+          <div class="dn-card__imgWrap" aria-hidden="true">
+            <img class="dn-card__img" src="${escapeHtml(r.image_url)}" alt="" loading="lazy" />
+          </div>
+
+          <div class="dn-card__body">
+            <!-- Recipe Name -->
+            <h3 class="dn-card__title">${escapeHtml(r.name)}</h3>
+
+            <!-- Restaurant Price (red) -->
+            <div class="dn-card__row dn-card__row--restaurant">
+              <span class="dn-card__label">Restaurant</span>
+              <span class="dn-card__value dn-card__value--restaurant">${money(r.restaurant_price)}</span>
+            </div>
+
+            <!-- Home Cost (white) -->
+            <div class="dn-card__row">
+              <span class="dn-card__label">Home</span>
+              <span class="dn-card__value">${money(r.home_cost)}</span>
+            </div>
+
+            <!-- YOU SAVE $X (green, dominant) -->
+            <div class="dn-card__savings" aria-label="Savings">
+              YOU SAVE <span class="dn-card__savingsNum">${money(r.savings)}</span>
+            </div>
+
+            <!-- Readiness % (text only, NOT green) -->
+            <div class="dn-card__readiness">${Number(r.readiness_pct)}% Ingredients Ready</div>
+
+            <!-- Add to Week -->
+            <button class="dn-card__btn" type="button">Add to Week</button>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+
+  return `
+    <section class="dn-selection" aria-label="Selection Mode Recipe Grid">
+      <div class="dn-selection__grid">
+        ${cards}
+      </div>
+    </section>
+  `;
+}

@@ -1,2 +1,5 @@
-import '../style.css'
-import '../script.js'
+import './ui/style.css'
+import './ui/app.js'
+
+import { bootEngine } from './engine/index.js'
+bootEngine()
