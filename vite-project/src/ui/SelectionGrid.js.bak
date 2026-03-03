@@ -73,8 +73,8 @@ function money(n) {
  * Clean render function
  * @returns {string} HTML
  */
-export function renderSelectionGrid(recipes = []) {
-  const cards = recipes
+export function renderSelectionGrid() {
+  const cards = mockSelectionData.recipes
     .map((r) => {
       return `
         <article class="dn-card" data-recipe-id="${escapeHtml(r.recipe_id)}">
@@ -108,7 +108,7 @@ export function renderSelectionGrid(recipes = []) {
             <div class="dn-card__readiness">${Number(r.readiness_pct)}% Ingredients Ready</div>
 
             <!-- Add to Week -->
-            <button class="dn-card__btn" type="button" data-add-to-week="1">Add to Week</button>
+            <button class="dn-card__btn" type="button">Add to Week</button>
           </div>
         </article>
       `;

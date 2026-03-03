@@ -41,8 +41,8 @@
 
 /* Image (top 50% of card) */
 .dn-card__imgWrap{
-  width: 100%;
-  height: 50%;
+  flex: 1 1 50%;
+  min-height: 0;
   background: var(--dn-surface-2);
 }
 
@@ -55,11 +55,12 @@
 
 /* Body */
 .dn-card__body{
+  flex: 1 1 50%;
+  min-height: 0;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  height: 50%;
 }
 
 /* Recipe Name */

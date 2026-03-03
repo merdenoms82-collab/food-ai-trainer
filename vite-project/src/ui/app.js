@@ -1,4 +1,5 @@
-import { config } from "../engine/index.js"; 
+import { config } from "../state/index.js";
+import { appState, selectRecipesForGrid, selectWeeklyTotals } from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.js";
 /* =========================================================
    DarsNest AI Kitchen OS — script.js (UI Core v1)
@@ -215,32 +216,7 @@ const recipeSeed = [
 /* =========================
    4) APP STATE
    ========================= */
-
-const appState = {
-  userId: getDeviceUserId(),
-
-  // UI
-  currentPage: "home",
-  currentRecipeTab: "ai-recipes",
-  pantryCategory: "all",
-  pantrySearch: "",
-
-  // Data
-  pantryItems: [], // loaded
-  selectedStaples: new Set(),
-
-  // Recipes / plan (MVP placeholders)
-  recipes: [...recipeSeed],
-  mealPlan: {
-    mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null
-  },
-
-  // toggles in Execution mode only (week-plan availability, not permanent pantry)
-  ingredientAvailabilityOverrides: {
-    // key: "recipeId|ingredientKey" => true/false
-  },
-};
-
+appState.recipes = [...recipeSeed];
 /* =========================
    5) DOM REFERENCES
    ========================= */
@@ -439,15 +415,16 @@ function computeReadiness(recipe) {
   const total = recipe.ingredients.length || 1;
   return Math.round((have / total) * 100);
 }
+
 function renderRecipesSelectionGrid() {
   if (!dom.recipesGrid) return;
   // TEMP: Static Selection Mode mount (UI-only)
-  const USE_STATIC_SELECTION_GRID = true;
+  const USE_STATIC_SELECTION_GRID = false;
 
   if (USE_STATIC_SELECTION_GRID) {
-    dom.recipesGrid.innerHTML = renderSelectionGrid();
+    dom.recipesGrid.innerHTML = renderSelectionGrid(selectRecipesForGrid(appState));
     return;
- }
+  }
 
   const cards = appState.recipes.map(r => {
     const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
@@ -522,24 +499,12 @@ function renderWeekCalendar() {
 }
 
 function renderWeeklyTotals() {
-  // MVP totals = sum of recipe placeholders. Later the pooled cost engine replaces this.
-  let restaurant = 0;
-  let home = 0;
+  // ✅ Phase 3: totals come from state selector (engine math), not UI loops.
+  const totals = selectWeeklyTotals(appState);
 
-  for (const dayKey of Object.keys(appState.mealPlan)) {
-    const rid = appState.mealPlan[dayKey];
-    if (!rid) continue;
-    const r = appState.recipes.find(x => x.id === rid);
-    if (!r) continue;
-    restaurant += Number(r.restaurantPrice || 0);
-    home += Number(r.homeCost || 0);
-  }
-
-  const save = Math.max(0, restaurant - home);
-
-  if (dom.weeklyRestaurantTotal) dom.weeklyRestaurantTotal.textContent = money(restaurant);
-  if (dom.weeklyHomeTotal) dom.weeklyHomeTotal.textContent = money(home);
-  if (dom.weeklySavingsTotal) dom.weeklySavingsTotal.textContent = money(save);
+  if (dom.weeklyRestaurantTotal) dom.weeklyRestaurantTotal.textContent = money(totals.restaurantTotal);
+  if (dom.weeklyHomeTotal) dom.weeklyHomeTotal.textContent = money(totals.homeTotal);
+  if (dom.weeklySavingsTotal) dom.weeklySavingsTotal.textContent = money(totals.savingsTotal);
 }
 
 /* =========================
@@ -967,7 +932,7 @@ function bindEvents() {
 
   // Recipes grid interactions (open modal / add to week)
   dom.recipesGrid?.addEventListener("click", (e) => {
-    const card = e.target.closest(".recipe-card");
+    const card = e.target.closest(".recipe-card, .dn-card");
     if (!card) return;
     const recipeId = card.dataset.recipeId;
     if (!recipeId) return;
