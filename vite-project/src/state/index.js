@@ -4,4 +4,4 @@
 export { config } from "../engine/index.js";
 
 export { appState } from "./store.js";
-export { selectRecipesForGrid, selectWeeklyTotals } from "./selectors.js";
+export { selectRecipesForGrid, selectWeeklyTotals, selectWeeklyEngineDebug } from "./selectors.js";

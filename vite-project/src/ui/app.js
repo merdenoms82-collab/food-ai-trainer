@@ -1,5 +1,10 @@
 import { config } from "../state/index.js";
-import { appState, selectRecipesForGrid, selectWeeklyTotals } from "../state/index.js";
+import {
+  appState,
+  selectRecipesForGrid,
+  selectWeeklyTotals,
+  selectWeeklyEngineDebug,
+} from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.js";
 /* =========================================================
    DarsNest AI Kitchen OS — script.js (UI Core v1)
@@ -95,10 +100,8 @@ async function ensureSupabase() {
     return null;
   }
 
-  // If already loaded
   if (supabaseClient) return supabaseClient;
 
-  // Load Supabase JS (UMD) at runtime so you don’t have to edit HTML
   if (!window.supabase) {
     await new Promise((resolve, reject) => {
       const s = document.createElement("script");
@@ -124,10 +127,6 @@ async function ensureSupabase() {
    3) DATA (MVP seed)
    ========================= */
 
-/**
- * Pantry staples database (simple)
- * You can expand categories later. We store as pantry_items rows.
- */
 const pantryStaplesDatabase = [
   { id: "salt", name: "Salt", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
   { id: "pepper", name: "Black Pepper", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
@@ -141,11 +140,6 @@ const pantryStaplesDatabase = [
   { id: "canned_tomatoes", name: "Canned Tomatoes", category: "canned", emoji: "🥫", quantity: "1", unit: "can" },
 ];
 
-/**
- * Recipes MVP seed (we will later replace with real DB)
- * restaurantPrice/homeCost are placeholders to demonstrate UI.
- * IMPORTANT: Green is used ONLY for “YOU SAVE”.
- */
 const recipeSeed = [
   {
     id: "r_chicken_alfredo",
@@ -216,13 +210,14 @@ const recipeSeed = [
 /* =========================
    4) APP STATE
    ========================= */
+
 appState.recipes = [...recipeSeed];
+
 /* =========================
    5) DOM REFERENCES
    ========================= */
 
 const dom = {
-  // pages
   pages: {
     home: $("#homePage"),
     pantry: $("#pantryPage"),
@@ -231,56 +226,46 @@ const dom = {
     "meal-planner": $("#mealPlannerPage"),
   },
 
-  // nav
   tabItems: $$(".tab-item"),
 
-  // pantry
   pantrySearch: $("#pantrySearch"),
   pantryGrid: $("#pantryGrid"),
   pantryCats: $$(".category-tab"),
   addItemBtn: $("#addItemBtn"),
   addMenu: $("#addMenu"),
 
-  // home
   homePantryItems: $("#homePantryItems"),
   totalItemsCount: $("#totalItemsCount"),
   freshItemsCount: $("#freshItemsCount"),
   expiringItemsCount: $("#expiringItemsCount"),
   expiredItemsCount: $("#expiredItemsCount"),
 
-  // staples modal
   staplesModal: $("#pantryStaplesModal"),
   staplesGrid: $("#staplesGrid"),
   saveStaplesBtn: $("#saveStaplesBtn"),
   skipStaplesBtn: $("#skipStaplesBtn"),
   closeStaplesModalBtn: $("#closeStaplesModalBtn"),
 
-  // welcome modal
   welcomeModal: $("#welcomeModal"),
   startOnboardingBtn: $("#startOnboardingBtn"),
 
-  // recipe modal
   recipeModal: $("#recipeModal"),
   recipeModalContent: $("#recipeModalContent"),
   closeRecipeModalBtn: $("#closeRecipeModalBtn"),
 
-  // recipes
   recipeTabs: $$(".recipes-tab"),
   recipesGrid: $("#recipesGrid"),
 
-  // scanner
   startScanBtn: $("#startScanBtn"),
   scannedItemEmoji: $("#scannedItemEmoji"),
   uploadPhotoBtn: $("#uploadPhotoBtn"),
 
-  // meal planner
   weekCalendar: $("#weekCalendar"),
   weeklyRestaurantTotal: $("#weeklyRestaurantTotal"),
   weeklyHomeTotal: $("#weeklyHomeTotal"),
   weeklySavingsTotal: $("#weeklySavingsTotal"),
   generateMealPlanBtn: $("#generateMealPlanBtn"),
 
-  // backdrop
   backdrop: $("#backdrop"),
 };
 
@@ -293,21 +278,16 @@ function normalizeKey(s) {
 }
 
 function pantryKey(item) {
-  // used for matching recipe ingredients to pantry items
   return normalizeKey(item.name);
 }
 
 function computeHomeStats() {
-  // We don’t have expiry/status logic yet; keep basic counts.
   const total = appState.pantryItems.length;
+  const fresh = appState.pantryItems.filter((x) => x.status === "fresh").length;
+  const expiring = appState.pantryItems.filter((x) => x.status === "expiring").length;
+  const expired = appState.pantryItems.filter((x) => x.status === "expired").length;
 
-  // If your rows contain status, we’ll respect it.
-  const fresh = appState.pantryItems.filter(x => x.status === "fresh").length;
-  const expiring = appState.pantryItems.filter(x => x.status === "expiring").length;
-  const expired = appState.pantryItems.filter(x => x.status === "expired").length;
-
-  // If status is missing, show totals as “fresh” to avoid confusing zeros.
-  const hasAnyStatus = appState.pantryItems.some(x => x.status);
+  const hasAnyStatus = appState.pantryItems.some((x) => x.status);
   return {
     total,
     fresh: hasAnyStatus ? fresh : total,
@@ -323,7 +303,6 @@ function renderHome() {
   if (dom.expiringItemsCount) dom.expiringItemsCount.textContent = stats.expiring;
   if (dom.expiredItemsCount) dom.expiredItemsCount.textContent = stats.expired;
 
-  // Recent items (last 6)
   if (!dom.homePantryItems) return;
   const items = [...appState.pantryItems].slice(-6).reverse();
 
@@ -338,17 +317,19 @@ function renderHome() {
     return;
   }
 
-  dom.homePantryItems.innerHTML = items.map(i => {
-    const cat = i.category || "uncategorized";
-    const qty = i.quantity ? `${i.quantity}${i.unit ? " " + i.unit : ""}` : "";
-    return `
+  dom.homePantryItems.innerHTML = items
+    .map((i) => {
+      const cat = i.category || "uncategorized";
+      const qty = i.quantity ? `${i.quantity}${i.unit ? ` ${i.unit}` : ""}` : "";
+      return `
       <div class="pantry-item" data-id="${i.id}">
         <span class="item-category">${cat}</span>
         <div class="item-name">${escapeHtml(i.emoji ? `${i.emoji} ${i.name}` : i.name)}</div>
         <div class="item-details">${escapeHtml(qty || "—")}</div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 function renderPantry() {
@@ -360,12 +341,11 @@ function renderPantry() {
   let items = [...appState.pantryItems];
 
   if (cat && cat !== "all") {
-    items = items.filter(i => normalizeKey(i.category) === cat);
+    items = items.filter((i) => normalizeKey(i.category) === cat);
   }
   if (q) {
-    items = items.filter(i =>
-      normalizeKey(i.name).includes(q) ||
-      normalizeKey(i.category).includes(q)
+    items = items.filter(
+      (i) => normalizeKey(i.name).includes(q) || normalizeKey(i.category).includes(q)
     );
   }
 
@@ -380,13 +360,16 @@ function renderPantry() {
     return;
   }
 
-  dom.pantryGrid.innerHTML = items.map(i => {
-    const statusClass =
-      i.status === "expired" ? "status-expired" :
-      i.status === "expiring" ? "status-warning" :
-      "status-fresh";
+  dom.pantryGrid.innerHTML = items
+    .map((i) => {
+      const statusClass =
+        i.status === "expired"
+          ? "status-expired"
+          : i.status === "expiring"
+            ? "status-warning"
+            : "status-fresh";
 
-    return `
+      return `
       <div class="pantry-card" data-id="${i.id}">
         <div class="item-status ${statusClass}"></div>
         <div class="item-image">${escapeHtml(i.emoji || "📦")}</div>
@@ -394,12 +377,12 @@ function renderPantry() {
         <div class="item-details">${escapeHtml((i.quantity ?? "") + (i.unit ? " " + i.unit : ""))}</div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 function computeReadiness(recipe) {
-  // Readiness based on pantry match OR overrides (weekly plan toggles)
-  const pantrySet = new Set(appState.pantryItems.map(p => pantryKey(p)));
+  const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
 
   let have = 0;
   for (const ing of recipe.ingredients) {
@@ -408,7 +391,7 @@ function computeReadiness(recipe) {
     const override = appState.ingredientAvailabilityOverrides[overrideKey];
     const inPantry = pantrySet.has(key);
 
-    const available = (override === undefined) ? inPantry : !!override;
+    const available = override === undefined ? inPantry : !!override;
     if (available) have++;
   }
 
@@ -418,7 +401,7 @@ function computeReadiness(recipe) {
 
 function renderRecipesSelectionGrid() {
   if (!dom.recipesGrid) return;
-  // TEMP: Static Selection Mode mount (UI-only)
+
   const USE_STATIC_SELECTION_GRID = false;
 
   if (USE_STATIC_SELECTION_GRID) {
@@ -426,19 +409,19 @@ function renderRecipesSelectionGrid() {
     return;
   }
 
-  const cards = appState.recipes.map(r => {
-    const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
-    const readiness = computeReadiness(r);
+  const cards = appState.recipes
+    .map((r) => {
+      const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
+      const readiness = computeReadiness(r);
+      const previewIngredients = r.ingredients.slice(0, 5).map((x) => x.name).join(", ");
 
-    // We only show 3–5 key ingredients on card (Selection Mode clean)
-    const previewIngredients = r.ingredients.slice(0, 5).map(x => x.name).join(", ");
-
-    return `
+      return `
       <article class="recipe-card" data-recipe-id="${r.id}">
         <div class="recipe-media">
-          ${r.image
-            ? `<img src="${escapeAttr(r.image)}" alt="${escapeAttr(r.name)}" />`
-            : `<div style="height:100%; display:flex; align-items:center; justify-content:center; font-size:48px;">${escapeHtml(r.emoji || "🍽️")}</div>`
+          ${
+            r.image
+              ? `<img src="${escapeAttr(r.image)}" alt="${escapeAttr(r.name)}" />`
+              : `<div style="height:100%; display:flex; align-items:center; justify-content:center; font-size:48px;">${escapeHtml(r.emoji || "🍽️")}</div>`
           }
         </div>
 
@@ -456,9 +439,12 @@ function renderRecipesSelectionGrid() {
         </div>
       </article>
     `;
-  }).join("");
+    })
+    .join("");
 
-  dom.recipesGrid.innerHTML = cards || `
+  dom.recipesGrid.innerHTML =
+    cards ||
+    `
     <div class="empty-state" style="grid-column:1/-1;">
       <div class="empty-icon">🍽️</div>
       <div class="empty-title">No recipes yet</div>
@@ -480,12 +466,13 @@ function renderWeekCalendar() {
     { key: "sun", label: "Sun" },
   ];
 
-  dom.weekCalendar.innerHTML = days.map((d) => {
-    const rid = appState.mealPlan[d.key];
-    const r = rid ? appState.recipes.find(x => x.id === rid) : null;
-    const save = r ? Math.max(0, (r.restaurantPrice||0) - (r.homeCost||0)) : 0;
+  dom.weekCalendar.innerHTML = days
+    .map((d) => {
+      const rid = appState.mealPlan[d.key];
+      const r = rid ? appState.recipes.find((x) => x.id === rid) : null;
+      const save = r ? Math.max(0, (r.restaurantPrice || 0) - (r.homeCost || 0)) : 0;
 
-    return `
+      return `
       <div class="day-slot" data-day="${d.key}">
         <div class="day-name">${d.label}</div>
         <div class="day-date">—</div>
@@ -493,14 +480,16 @@ function renderWeekCalendar() {
         ${r ? `<div style="font-size:11px; font-weight:900; color: var(--save);">+${money(save)} saved</div>` : ""}
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 
   renderWeeklyTotals();
 }
 
 function renderWeeklyTotals() {
-  // ✅ Phase 3: totals come from state selector (engine math), not UI loops.
   const totals = selectWeeklyTotals(appState);
+  console.log("Weekly Engine Debug:", selectWeeklyEngineDebug(appState));
+  console.log("Weekly Totals:", totals);
 
   if (dom.weeklyRestaurantTotal) dom.weeklyRestaurantTotal.textContent = money(totals.restaurantTotal);
   if (dom.weeklyHomeTotal) dom.weeklyHomeTotal.textContent = money(totals.homeTotal);
@@ -542,13 +531,11 @@ function closeStaplesModal() {
 }
 
 function openRecipeModal(recipeId, { forDay = null } = {}) {
-  const r = appState.recipes.find(x => x.id === recipeId);
+  const r = appState.recipes.find((x) => x.id === recipeId);
   if (!r || !dom.recipeModal || !dom.recipeModalContent) return;
 
   dom.recipeModal.classList.add("active");
   openBackdrop();
-
-  // Execution Mode screen hierarchy (locked order)
   dom.recipeModalContent.innerHTML = renderRecipeExecutionScreen(r, forDay);
 }
 function closeRecipeModal() {
@@ -560,7 +547,7 @@ function closeRecipeModal() {
 function toggleAddMenu(force = null) {
   if (!dom.addMenu) return;
   const isOpen = dom.addMenu.classList.contains("active");
-  const next = (force === null) ? !isOpen : !!force;
+  const next = force === null ? !isOpen : !!force;
   dom.addMenu.classList.toggle("active", next);
 }
 
@@ -571,13 +558,14 @@ function toggleAddMenu(force = null) {
 function renderStaplesGrid() {
   if (!dom.staplesGrid) return;
 
-  const pantryNames = new Set(appState.pantryItems.map(p => pantryKey(p)));
+  const pantryNames = new Set(appState.pantryItems.map((p) => pantryKey(p)));
 
-  dom.staplesGrid.innerHTML = pantryStaplesDatabase.map(s => {
-    const inPantry = pantryNames.has(normalizeKey(s.name));
-    const selected = appState.selectedStaples.has(s.id);
+  dom.staplesGrid.innerHTML = pantryStaplesDatabase
+    .map((s) => {
+      const inPantry = pantryNames.has(normalizeKey(s.name));
+      const selected = appState.selectedStaples.has(s.id);
 
-    return `
+      return `
       <div class="staple-card ${selected ? "selected" : ""} ${inPantry ? "disabled" : ""}"
            data-staple-id="${s.id}"
            role="button"
@@ -589,18 +577,18 @@ function renderStaplesGrid() {
         <div class="staple-checkmark"><i class="fas fa-check"></i></div>
       </div>
     `;
-  }).join("");
+    })
+    .join("");
 }
 
 async function saveSelectedStaplesToPantry() {
-  const selected = pantryStaplesDatabase.filter(s => appState.selectedStaples.has(s.id));
+  const selected = pantryStaplesDatabase.filter((s) => appState.selectedStaples.has(s.id));
   if (!selected.length) {
     toast("No staples selected.", "ℹ️");
     return;
   }
 
-  // Convert staples to pantry_items rows
-  const rows = selected.map(s => ({
+  const rows = selected.map((s) => ({
     user_id: appState.userId,
     name: s.name,
     category: s.category,
@@ -608,10 +596,9 @@ async function saveSelectedStaplesToPantry() {
     unit: s.unit,
     emoji: s.emoji,
     status: "fresh",
-    expiry_date: null
+    expiry_date: null,
   }));
 
-  // Save to Supabase if configured, else local
   if (await ensureSupabase()) {
     const sb = supabaseClient;
     const { error } = await sb.from("pantry_items").insert(rows);
@@ -627,7 +614,6 @@ async function saveSelectedStaplesToPantry() {
     toast("Staples added (local).", "✅");
   }
 
-  // Clear selection, close, reload pantry
   appState.selectedStaples.clear();
   closeStaplesModal();
   await loadPantryItems();
@@ -653,12 +639,11 @@ function localSavePantry(items) {
 }
 function localInsertPantry(rows) {
   const all = localLoadPantry();
-  const withIds = rows.map(r => ({ ...r, id: uid("pi"), created_at: new Date().toISOString() }));
+  const withIds = rows.map((r) => ({ ...r, id: uid("pi"), created_at: new Date().toISOString() }));
   localSavePantry([...all, ...withIds]);
 }
 
 async function loadPantryItems() {
-  // Supabase mode
   if (await ensureSupabase()) {
     const sb = supabaseClient;
     const { data, error } = await sb
@@ -670,12 +655,12 @@ async function loadPantryItems() {
     if (error) {
       console.error(error);
       toast("Supabase load failed. Using local.", "⚠️");
-      appState.pantryItems = localLoadPantry().filter(x => x.user_id === appState.userId);
+      appState.pantryItems = localLoadPantry().filter((x) => x.user_id === appState.userId);
     } else {
       appState.pantryItems = data || [];
     }
   } else {
-    appState.pantryItems = localLoadPantry().filter(x => x.user_id === appState.userId);
+    appState.pantryItems = localLoadPantry().filter((x) => x.user_id === appState.userId);
   }
 
   renderHome();
@@ -690,26 +675,19 @@ async function loadPantryItems() {
    ========================= */
 
 function renderRecipeExecutionScreen(r, forDay) {
-  // Locked order:
-  // 1) Recipe Name
-  // 2) Portion Controls (placeholder)
-  // 3) Ingredients (with toggles)
-  // 4) Steps
-  // 5) Chef Maya panel (collapsible placeholder)
-  // 6) Cost breakdown (collapsed placeholder)
   const readiness = computeReadiness(r);
 
-  const ingredientsHtml = r.ingredients.map((ing) => {
-    const key = normalizeKey(ing.key || ing.name);
-    const overrideKey = `${r.id}|${key}`;
-    const pantrySet = new Set(appState.pantryItems.map(p => pantryKey(p)));
-    const inPantry = pantrySet.has(key);
+  const ingredientsHtml = r.ingredients
+    .map((ing) => {
+      const key = normalizeKey(ing.key || ing.name);
+      const overrideKey = `${r.id}|${key}`;
+      const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
+      const inPantry = pantrySet.has(key);
 
-    const override = appState.ingredientAvailabilityOverrides[overrideKey];
-    const available = (override === undefined) ? inPantry : !!override;
+      const override = appState.ingredientAvailabilityOverrides[overrideKey];
+      const available = override === undefined ? inPantry : !!override;
 
-    // Toggle is for weekly plan / readiness only (does not permanently update pantry)
-    return `
+      return `
       <li class="ingredient-item" data-ing-key="${escapeAttr(key)}" style="display:flex; align-items:center; gap:10px;">
         <span class="ingredient-emoji">${available ? "✔️" : "➕"}</span>
         <div style="flex:1;">
@@ -725,20 +703,24 @@ function renderRecipeExecutionScreen(r, forDay) {
         </button>
       </li>
     `;
-  }).join("");
+    })
+    .join("");
 
-  const stepsHtml = (r.steps || []).map((s, idx) => `
+  const stepsHtml = (r.steps || [])
+    .map(
+      (s, idx) => `
     <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
       <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
       <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
     </li>
-  `).join("");
+  `
+    )
+    .join("");
 
   const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
 
   return `
     <div style="display:flex; flex-direction:column; gap:14px;">
-      <!-- 1) Name -->
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <div>
           <div style="font-size:18px; font-weight:900;">${escapeHtml(r.name)}</div>
@@ -751,7 +733,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </div>
       </div>
 
-      <!-- 2) Portion controls (placeholder) -->
       <div class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <div style="font-weight:900; margin-bottom:8px;">Portions</div>
         <div style="display:flex; gap:8px; align-items:center;">
@@ -762,7 +743,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </div>
       </div>
 
-      <!-- 3) Ingredients -->
       <div>
         <div style="font-weight:900; margin-bottom:10px;">Ingredients</div>
         <ul class="ingredients-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
@@ -770,7 +750,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </ul>
       </div>
 
-      <!-- 4) Steps -->
       <div>
         <div style="font-weight:900; margin-bottom:10px;">Steps</div>
         <ol class="instructions-list" style="list-style:none; padding:0; margin:0;">
@@ -778,7 +757,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </ol>
       </div>
 
-      <!-- 5) Chef Maya panel (collapsed by default) -->
       <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <summary style="cursor:pointer; font-weight:900;">Chef Maya Help</summary>
         <div style="margin-top:10px; color: var(--muted); line-height:1.45; font-size:13px;">
@@ -786,7 +764,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </div>
       </details>
 
-      <!-- 6) Cost breakdown (collapsed) -->
       <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <summary style="cursor:pointer; font-weight:900;">Cost Breakdown</summary>
         <div style="margin-top:10px; color: var(--muted); font-size:13px;">
@@ -794,7 +771,6 @@ function renderRecipeExecutionScreen(r, forDay) {
         </div>
       </details>
 
-      <!-- Add to week (if opened from selection mode) -->
       <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(r.id)}">
         Add to Week
       </button>
@@ -809,18 +785,15 @@ function renderRecipeExecutionScreen(r, forDay) {
 function setActivePage(pageKey) {
   appState.currentPage = pageKey;
 
-  // pages
   Object.entries(dom.pages).forEach(([k, el]) => {
     if (!el) return;
     el.classList.toggle("active", k === pageKey);
   });
 
-  // tabs
-  dom.tabItems.forEach(t => {
+  dom.tabItems.forEach((t) => {
     t.classList.toggle("active", t.dataset.page === pageKey);
   });
 
-  // close any menus
   toggleAddMenu(false);
 }
 
@@ -829,8 +802,7 @@ function setActivePage(pageKey) {
    ========================= */
 
 function bindEvents() {
-  // Tabs
-  dom.tabItems.forEach(t => {
+  dom.tabItems.forEach((t) => {
     t.addEventListener("click", (e) => {
       e.preventDefault();
       const page = t.dataset.page;
@@ -839,7 +811,6 @@ function bindEvents() {
     });
   });
 
-  // Backdrop click closes modals/menus
   dom.backdrop?.addEventListener("click", () => {
     toggleAddMenu(false);
     closeStaplesModal();
@@ -847,35 +818,33 @@ function bindEvents() {
     closeWelcomeModal();
   });
 
-  // Welcome modal
   dom.startOnboardingBtn?.addEventListener("click", () => {
     closeWelcomeModal();
     openStaplesModal();
   });
 
-  // Pantry search
-  dom.pantrySearch?.addEventListener("input", debounce((e) => {
-    appState.pantrySearch = e.target.value || "";
-    renderPantry();
-  }, 120));
+  dom.pantrySearch?.addEventListener(
+    "input",
+    debounce((e) => {
+      appState.pantrySearch = e.target.value || "";
+      renderPantry();
+    }, 120)
+  );
 
-  // Pantry categories
-  dom.pantryCats.forEach(tab => {
+  dom.pantryCats.forEach((tab) => {
     tab.addEventListener("click", () => {
-      dom.pantryCats.forEach(t => t.classList.remove("active"));
+      dom.pantryCats.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
       appState.pantryCategory = normalizeKey(tab.dataset.category || "all");
       renderPantry();
     });
   });
 
-  // Add menu toggle
   dom.addItemBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     toggleAddMenu();
   });
 
-  // Add menu actions
   dom.addMenu?.addEventListener("click", (e) => {
     const item = e.target.closest(".menu-item");
     if (!item) return;
@@ -891,7 +860,6 @@ function bindEvents() {
     }
   });
 
-  // Staples modal events
   dom.closeStaplesModalBtn?.addEventListener("click", closeStaplesModal);
   dom.skipStaplesBtn?.addEventListener("click", closeStaplesModal);
   dom.saveStaplesBtn?.addEventListener("click", saveSelectedStaplesToPantry);
@@ -914,66 +882,54 @@ function bindEvents() {
     renderStaplesGrid();
   });
 
-  // Recipes tabs
-  dom.recipeTabs.forEach(tab => {
+  dom.recipeTabs.forEach((tab) => {
     tab.addEventListener("click", () => {
-      dom.recipeTabs.forEach(t => t.classList.remove("active"));
+      dom.recipeTabs.forEach((t) => t.classList.remove("active"));
       tab.classList.add("active");
 
       const tabKey = tab.dataset.tab || "ai-recipes";
       appState.currentRecipeTab = tabKey;
 
-      // show/hide tab contents
       $("#aiRecipesTab")?.classList.toggle("active", tabKey === "ai-recipes");
       $("#myRecipesTab")?.classList.toggle("active", tabKey === "my-recipes");
       $("#favoritesTab")?.classList.toggle("active", tabKey === "favorites");
     });
   });
 
-  // Recipes grid interactions (open modal / add to week)
   dom.recipesGrid?.addEventListener("click", (e) => {
     const card = e.target.closest(".recipe-card, .dn-card");
     if (!card) return;
     const recipeId = card.dataset.recipeId;
     if (!recipeId) return;
 
-    // If clicked button: add to week
     const addBtn = e.target.closest("[data-add-to-week]");
     if (addBtn) {
-      // default behavior: switch to Plan and ask user to pick day by tapping day slot
-      // store “pending recipe” in temp var
       appState._pendingAddRecipeId = recipeId;
       setActivePage("meal-planner");
       toast("Tap a day to place this meal.", "📅");
       return;
     }
 
-    // Otherwise open recipe
     openRecipeModal(recipeId);
   });
 
-  // Recipe modal close
   dom.closeRecipeModalBtn?.addEventListener("click", closeRecipeModal);
 
-  // Recipe modal ingredient toggles + add-to-week button
   dom.recipeModalContent?.addEventListener("click", (e) => {
     const toggleBtn = e.target.closest("[data-toggle-ingredient]");
     if (toggleBtn) {
       const ingKey = toggleBtn.dataset.ingKey;
       if (!ingKey) return;
 
-      // find current recipe in modal by scanning nearest data
-      // (simple method: store last opened recipe id)
       const recipeId = appState._lastOpenedRecipeId;
       if (!recipeId) return;
 
       const overrideKey = `${recipeId}|${normalizeKey(ingKey)}`;
-
-      // toggle
       const current = appState.ingredientAvailabilityOverrides[overrideKey];
-      appState.ingredientAvailabilityOverrides[overrideKey] = !(current === undefined ? false : current);
+      appState.ingredientAvailabilityOverrides[overrideKey] = !(
+        current === undefined ? false : current
+      );
 
-      // Re-render modal + cards + weekly totals
       openRecipeModal(recipeId);
       renderRecipesSelectionGrid();
       renderWeekCalendar();
@@ -988,11 +944,9 @@ function bindEvents() {
       closeRecipeModal();
       setActivePage("meal-planner");
       toast("Tap a day to place this meal.", "📅");
-      return;
     }
   });
 
-  // Week calendar tap to assign / open
   dom.weekCalendar?.addEventListener("click", (e) => {
     const slot = e.target.closest(".day-slot");
     if (!slot) return;
@@ -1000,7 +954,6 @@ function bindEvents() {
     const day = slot.dataset.day;
     if (!day) return;
 
-    // If pending recipe, assign to day
     if (appState._pendingAddRecipeId) {
       appState.mealPlan[day] = appState._pendingAddRecipeId;
       appState._pendingAddRecipeId = null;
@@ -1009,15 +962,12 @@ function bindEvents() {
       return;
     }
 
-    // If day already has recipe, open it (execution mode)
     const rid = appState.mealPlan[day];
     if (rid) openRecipeModal(rid, { forDay: day });
     else toast("Add a recipe from Recipes tab.", "ℹ️");
   });
 
-  // Scanner demo
   dom.startScanBtn?.addEventListener("click", () => {
-    // Fake scan: cycle emoji, add sample item
     const emojis = ["🍎", "🥛", "🥦", "🍗", "🧀", "🍞"];
     const pick = emojis[Math.floor(Math.random() * emojis.length)];
     if (dom.scannedItemEmoji) dom.scannedItemEmoji.textContent = pick;
@@ -1028,7 +978,7 @@ function bindEvents() {
       "🥦": "Broccoli",
       "🍗": "Chicken",
       "🧀": "Cheese",
-      "🍞": "Bread"
+      "🍞": "Bread",
     };
     const name = nameMap[pick] || "Item";
     const row = {
@@ -1039,7 +989,7 @@ function bindEvents() {
       unit: "",
       emoji: pick,
       status: "fresh",
-      expiry_date: null
+      expiry_date: null,
     };
 
     addPantryItem(row);
@@ -1049,7 +999,6 @@ function bindEvents() {
     toast("Photo upload wiring next.", "🧩");
   });
 
-  // quick actions routing (home)
   document.addEventListener("click", (e) => {
     const actionCard = e.target.closest("[data-action]");
     if (!actionCard) return;
@@ -1071,7 +1020,6 @@ function guessCategory(name) {
   return "all";
 }
 
-/* add pantry item (supabase or local) */
 async function addPantryItem(row) {
   if (await ensureSupabase()) {
     const sb = supabaseClient;
@@ -1112,15 +1060,12 @@ function escapeAttr(str) {
    ========================= */
 
 function init() {
-  // On first run show welcome modal (simple flag)
   const seen = localStorage.getItem("darsnest_seen_welcome");
   if (!seen) {
     localStorage.setItem("darsnest_seen_welcome", "1");
-    // slight delay to avoid jank
     setTimeout(openWelcomeModal, 250);
   }
 
-  // Track last opened recipe for toggles
   const originalOpenRecipeModal = openRecipeModal;
   openRecipeModal = function patchedOpenRecipeModal(recipeId, opts) {
     appState._lastOpenedRecipeId = recipeId;
@@ -1130,17 +1075,14 @@ function init() {
   bindEvents();
   setActivePage("home");
 
-  // Initial renders
   renderRecipesSelectionGrid();
   renderWeekCalendar();
 
-  // Load pantry data
-  loadPantryItems().catch(err => {
+  loadPantryItems().catch((err) => {
     console.error(err);
     toast("Load failed. Check console.", "⚠️");
   });
 
-  // If Supabase keys are empty, tell user once (not annoying)
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn("Supabase not configured. Running in LOCAL mode.");
     toast("Running in local mode (add Supabase keys in script.js).", "ℹ️");
