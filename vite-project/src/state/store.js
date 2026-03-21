@@ -62,15 +62,6 @@ export const appState = {
       savings: 13.75,
       readiness_pct: 71,
     },
-    {
-      id: "r_turkey_chili",
-      name: "Turkey Chili (Big Batch)",
-      image_url:
-        "https://images.unsplash.com/photo-1555243896-c709bfa0b564?auto=format&fit=crop&w=1200&q=70",
-      restaurant_price: 20.0,
-      home_cost: 7.25,
-      savings: 12.75,
-      readiness_pct: 76,
-    },
+    
   ],
 };
