@@ -58,7 +58,7 @@ function SelectionGrid({ recipes = [] }) {
       <div className="dn-selection__grid">
         {recipes.map((recipe) => (
           <SelectionCard
-            key={String(recipe.recipe_id ?? recipe.id ?? Math.random())}
+            key={String(recipe.recipe_id ?? recipe.id ?? "")}
             recipe={recipe}
           />
         ))}
