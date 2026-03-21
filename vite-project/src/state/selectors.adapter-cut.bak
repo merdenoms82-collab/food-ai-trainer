@@ -42,10 +42,14 @@ function adaptRecipeForSelectionCard(recipe, seedCard, state) {
     id: recipe?.id ?? seedCard?.id ?? "",
     name: seedCard?.name ?? recipe?.name ?? "",
     image_url: seedCard?.image_url ?? recipe?.image ?? "",
-    restaurant_price: seedCard?.restaurant_price ?? restaurantPrice,
-    home_cost: seedCard?.home_cost ?? homeCost,
-    savings: seedCard?.savings ?? computedSavings,
-    readiness_pct: seedCard?.readiness_pct ?? computeReadinessPct(recipe, state),
+    restaurant_price:
+      seedCard?.restaurant_price ?? restaurantPrice,
+    home_cost:
+      seedCard?.home_cost ?? homeCost,
+    savings:
+      seedCard?.savings ?? computedSavings,
+    readiness_pct:
+      seedCard?.readiness_pct ?? computeReadinessPct(recipe, state),
   };
 }
 
@@ -75,15 +79,18 @@ export function selectWeeklyTotals(state) {
   const mealPlan = state?.mealPlan ?? {};
   const allRecipes = state?.recipes ?? [];
 
+  // 1) Selected recipes from mealPlan
   const selectedIds = Object.values(mealPlan).filter(Boolean);
   const selectedRecipes = selectedIds
     .map((id) => allRecipes.find((r) => r?.id === id))
     .filter(Boolean);
 
+  // If nothing selected, return zeros
   if (!selectedRecipes.length) {
     return { restaurantTotal: 0, homeTotal: 0, savingsTotal: 0 };
   }
 
+  // 2) Adapt recipes into engine contract (real ingredientMaster + known ids only)
   const engineRecipes = selectedRecipes.map((r) => {
     const ingredients = (r.ingredients ?? [])
       .map((line) => {
@@ -109,6 +116,7 @@ export function selectWeeklyTotals(state) {
     };
   });
 
+  // 3) TEMP pantryItems (next step maps pantryItems -> ingredient_id + qty + unit)
   const pantryItems = [];
 
   const result = computeWeeklySavingsEngineV1({
