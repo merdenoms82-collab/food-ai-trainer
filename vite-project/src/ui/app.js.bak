@@ -402,7 +402,7 @@ function computeReadiness(recipe) {
 function renderRecipesSelectionGrid() {
   if (!dom.recipesGrid) return;
 
-  const USE_STATIC_SELECTION_GRID = true;
+  const USE_STATIC_SELECTION_GRID = false;
 
   if (USE_STATIC_SELECTION_GRID) {
     dom.recipesGrid.innerHTML = renderSelectionGrid(selectRecipesForGrid(appState));
