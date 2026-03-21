@@ -10,7 +10,7 @@ function money(n) {
 
 function SelectionCard({ recipe }) {
   return (
-    <article className="dn-card" data-recipe-id={String(recipe.recipe_id ?? "")}>
+    <article className="dn-card" data-recipe-id={String(recipe.id ?? recipe.recipe_id ?? "")}>
       <div className="dn-card__imgWrap" aria-hidden="true">
         <img
           className="dn-card__img"

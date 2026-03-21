@@ -6,6 +6,7 @@ import {
   selectWeeklyEngineDebug,
 } from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
+
 /* =========================================================
    DarsNest AI Kitchen OS — script.js (UI Core v1)
    - Navigation (tabs -> pages)

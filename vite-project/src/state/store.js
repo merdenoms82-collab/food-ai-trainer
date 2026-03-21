@@ -18,7 +18,13 @@ export const appState = {
   // ---- Recipes / plan (UI currently expects these) ----
   recipes: [],
   mealPlan: {
-    mon: null, tue: null, wed: null, thu: null, fri: null, sat: null, sun: null,
+    mon: null,
+    tue: null,
+    wed: null,
+    thu: null,
+    fri: null,
+    sat: null,
+    sun: null,
   },
   ingredientAvailabilityOverrides: {},
   _pendingAddRecipeId: null,
@@ -27,7 +33,7 @@ export const appState = {
   // Phase 2 seed data (temporary): Selection Mode cards
   recipesForGrid: [
     {
-      recipe_id: "r_001",
+      id: "r_chicken_alfredo",
       name: "Garlic Butter Chicken & Rice",
       image_url:
         "https://images.unsplash.com/photo-1604908176997-125f25cc500f?auto=format&fit=crop&w=1200&q=70",
@@ -37,7 +43,7 @@ export const appState = {
       readiness_pct: 82,
     },
     {
-      recipe_id: "r_002",
+      id: "r_taco_bowls",
       name: "Beef Tacos (Weeknight)",
       image_url:
         "https://images.unsplash.com/photo-1552332386-f8dd00dc2f85?auto=format&fit=crop&w=1200&q=70",
@@ -47,7 +53,7 @@ export const appState = {
       readiness_pct: 64,
     },
     {
-      recipe_id: "r_003",
+      id: "r_salmon_veg",
       name: "Salmon Bowl (Simple)",
       image_url:
         "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=1200&q=70",
@@ -57,7 +63,7 @@ export const appState = {
       readiness_pct: 71,
     },
     {
-      recipe_id: "r_004",
+      id: "r_turkey_chili",
       name: "Turkey Chili (Big Batch)",
       image_url:
         "https://images.unsplash.com/photo-1555243896-c709bfa0b564?auto=format&fit=crop&w=1200&q=70",
