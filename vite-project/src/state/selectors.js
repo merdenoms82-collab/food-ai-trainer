@@ -8,6 +8,206 @@ function normalizeKey(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
+function singularizeUnit(unit) {
+  const normalized = normalizeKey(unit);
+  if (!normalized) return "";
+  if (normalized === "cloves") return "clove";
+  if (normalized === "heads") return "head";
+  if (normalized === "whole") return "whole";
+  if (normalized.endsWith("s")) return normalized.slice(0, -1);
+  return normalized;
+}
+
+function getRecipeIngredientId(line) {
+  const rawKey = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
+
+  if (!rawKey) return null;
+  if (rawKey === "chicken breast") return "chicken";
+  if (rawKey === "salt") return "spice";
+  if (rawKey === "black pepper") return "spice";
+  return rawKey;
+}
+
+ function adaptRecipeLineForEngine(line) {
+  const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
+  const mapped_ingredient_id = getRecipeIngredientId(line);
+
+  if (!source_key) {
+    return {
+      accepted: false,
+      reason: "missing ingredient key",
+      source_key,
+    };
+  }
+
+  if (!mapped_ingredient_id) {
+    return {
+      accepted: false,
+      reason: "unmapped ingredient id",
+      source_key,
+    };
+  }
+
+  const ingredient = ingredientMaster[mapped_ingredient_id];
+  if (!ingredient) {
+    return {
+      accepted: false,
+      reason: "ingredient id missing from ingredientMaster",
+      source_key,
+      mapped_ingredient_id,
+    };
+  }
+
+  const rawQty = normalizeKey(line?.qty ?? "");
+  if (!rawQty) {
+    return {
+      accepted: false,
+      reason: "missing quantity",
+      source_key,
+      mapped_ingredient_id,
+      raw_qty: rawQty,
+    };
+  }
+
+  if (rawQty === "to taste") {
+    return {
+      accepted: false,
+      reason: 'non-quantitative input: "to taste"',
+      source_key,
+      mapped_ingredient_id,
+      raw_qty: rawQty,
+    };
+  }
+
+  const baseUnit = singularizeUnit(ingredient.base_unit);
+
+  const unitMatch = rawQty.match(/^(\d+(?:\.\d+)?)\s+([a-zA-Z]+)$/);
+  if (unitMatch) {
+    const qty = Number.parseFloat(unitMatch[1]);
+    const unit = singularizeUnit(unitMatch[2]);
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return {
+        accepted: false,
+        reason: "invalid numeric quantity",
+        source_key,
+        mapped_ingredient_id,
+        raw_qty: rawQty,
+      };
+    }
+
+    if (unit !== baseUnit) {
+      return {
+        accepted: false,
+        reason: "unit does not match base unit",
+        source_key,
+        mapped_ingredient_id,
+        raw_qty: rawQty,
+        parsed_unit: unit,
+        base_unit: ingredient.base_unit,
+      };
+    }
+
+    return {
+      accepted: true,
+      category: "exact quantity+unit match",
+      source_key,
+      ingredient_id: mapped_ingredient_id,
+      qty,
+      unit: ingredient.base_unit,
+    };
+  }
+
+  const bareNumberMatch = rawQty.match(/^(\d+(?:\.\d+)?)$/);
+  if (bareNumberMatch && baseUnit === "whole") {
+    const qty = Number.parseFloat(bareNumberMatch[1]);
+
+    if (!Number.isFinite(qty) || qty <= 0) {
+      return {
+        accepted: false,
+        reason: "invalid numeric quantity",
+        source_key,
+        mapped_ingredient_id,
+        raw_qty: rawQty,
+      };
+    }
+
+    return {
+      accepted: true,
+      category: 'bare number accepted for base unit "whole"',
+      source_key,
+      ingredient_id: mapped_ingredient_id,
+      qty,
+      unit: ingredient.base_unit,
+    };
+  }
+
+  return {
+    accepted: false,
+    reason: "unsupported quantity format",
+    source_key,
+    mapped_ingredient_id,
+    raw_qty: rawQty,
+    base_unit: ingredient.base_unit,
+  };
+}
+
+ function adaptRecipesForWeeklyEngine(selectedRecipes) {
+  const acceptedRecipes = [];
+  const report = {
+    accepted_recipe_lines: [],
+    rejected_recipe_lines: [],
+  };
+
+  for (const r of selectedRecipes) {
+    const acceptedIngredients = [];
+
+    for (const line of r.ingredients ?? []) {
+      const adapted = adaptRecipeLineForEngine(line);
+
+      if (adapted.accepted) {
+        acceptedIngredients.push({
+          ingredient_id: adapted.ingredient_id,
+          qty: adapted.qty,
+          unit: adapted.unit,
+        });
+
+        report.accepted_recipe_lines.push({
+          recipe_id: r.id,
+          recipe_name: r.name ?? null,
+          source_key: adapted.source_key,
+          ingredient_id: adapted.ingredient_id,
+          qty: adapted.qty,
+          unit: adapted.unit,
+          category: adapted.category,
+        });
+      } else {
+        report.rejected_recipe_lines.push({
+          recipe_id: r.id,
+          recipe_name: r.name ?? null,
+          source_key: adapted.source_key ?? null,
+          raw_qty: adapted.raw_qty ?? null,
+          mapped_ingredient_id: adapted.mapped_ingredient_id ?? null,
+          base_unit: adapted.base_unit ?? null,
+          parsed_unit: adapted.parsed_unit ?? null,
+          reason: adapted.reason,
+        });
+      }
+    }
+
+    acceptedRecipes.push({
+      id: r.id,
+      ingredients: acceptedIngredients,
+      restaurant_price_estimate: Number(r.restaurantPrice ?? 0),
+    });
+  }
+
+  return {
+    recipes: acceptedRecipes,
+    report,
+  };
+}
+
 function computeReadinessPct(recipe, state) {
   const pantryItems = state?.pantryItems ?? [];
   const overrides = state?.ingredientAvailabilityOverrides ?? {};
@@ -34,7 +234,141 @@ function computeReadinessPct(recipe, state) {
   return Math.round((availableCount / ingredients.length) * 100);
 }
 
-function adaptRecipeForSelectionCard(recipe, state) {
+ function adaptPantryRowForEngine(item) {
+  const rawName = normalizeKey(item?.name);
+  const rawQty = Number.parseFloat(item?.quantity ?? "");
+  const rawUnit = singularizeUnit(item?.unit);
+
+  const explicitNameToIngredientId = {
+    rice: "rice",
+    chicken: "chicken",
+    salsa: "salsa",
+    salt: "spice",
+    "black pepper": "spice",
+    pepper: "spice",
+    "garlic powder": "spice",
+    "onion powder": "spice",
+    spice: "spice",
+    "olive oil": "olive oil",
+    pasta: "pasta",
+    broccoli: "broccoli",
+    cheese: "cheese",
+  };
+
+  if (!rawName) {
+    return {
+      accepted: false,
+      reason: "missing pantry name",
+      raw_name: rawName,
+    };
+  }
+
+  if (!Number.isFinite(rawQty) || rawQty <= 0) {
+    return {
+      accepted: false,
+      reason: "invalid numeric quantity",
+      raw_name: rawName,
+      raw_qty: item?.quantity ?? null,
+      raw_unit: item?.unit ?? null,
+    };
+  }
+
+  let ingredient_id = explicitNameToIngredientId[rawName] ?? null;
+
+  if (!ingredient_id) {
+    if (rawName.includes("rice")) ingredient_id = "rice";
+    else if (rawName.includes("chicken")) ingredient_id = "chicken";
+    else if (rawName.includes("salsa")) ingredient_id = "salsa";
+  }
+
+  if (!ingredient_id) {
+    return {
+      accepted: false,
+      reason: "unmapped ingredient id",
+      raw_name: rawName,
+      raw_qty: rawQty,
+      raw_unit: item?.unit ?? null,
+    };
+  }
+
+  if (!ingredientMaster[ingredient_id]) {
+    return {
+      accepted: false,
+      reason: "ingredient id missing from ingredientMaster",
+      raw_name: rawName,
+      raw_qty: rawQty,
+      raw_unit: item?.unit ?? null,
+      ingredient_id,
+    };
+  }
+
+  const baseUnit = singularizeUnit(ingredientMaster[ingredient_id].base_unit);
+  if (rawUnit !== baseUnit) {
+    return {
+      accepted: false,
+      reason: "unsupported pantry unit",
+      raw_name: rawName,
+      raw_qty: rawQty,
+      raw_unit: item?.unit ?? null,
+      ingredient_id,
+      base_unit: ingredientMaster[ingredient_id].base_unit,
+    };
+  }
+
+  return {
+    accepted: true,
+    category: "pantry unit matches base unit",
+    raw_name: rawName,
+    ingredient_id,
+    qty: rawQty,
+    unit: ingredientMaster[ingredient_id].base_unit,
+  };
+}
+
+ function adaptPantryItemsForEngine(state) {
+  const pantryItems = state?.pantryItems ?? [];
+  const acceptedPantryItems = [];
+  const report = {
+    accepted_pantry_rows: [],
+    rejected_pantry_rows: [],
+  };
+
+  for (const item of pantryItems) {
+    const adapted = adaptPantryRowForEngine(item);
+
+    if (adapted.accepted) {
+      acceptedPantryItems.push({
+        ingredient_id: adapted.ingredient_id,
+        qty: adapted.qty,
+        unit: adapted.unit,
+      });
+
+      report.accepted_pantry_rows.push({
+        raw_name: adapted.raw_name,
+        ingredient_id: adapted.ingredient_id,
+        qty: adapted.qty,
+        unit: adapted.unit,
+        category: adapted.category,
+      });
+    } else {
+      report.rejected_pantry_rows.push({
+        raw_name: adapted.raw_name ?? null,
+        raw_qty: adapted.raw_qty ?? null,
+        raw_unit: adapted.raw_unit ?? null,
+        ingredient_id: adapted.ingredient_id ?? null,
+        base_unit: adapted.base_unit ?? null,
+        reason: adapted.reason,
+      });
+    }
+  }
+
+  return {
+    pantryItems: acceptedPantryItems,
+    report,
+  };
+}
+
+ function adaptRecipeForSelectionCard(recipe, state) {
   const presentation = recipePresentationById[recipe?.id] ?? {};
 
   const restaurantPrice = Number(
@@ -77,37 +411,13 @@ export function selectWeeklyTotals(state) {
     return { restaurantTotal: 0, homeTotal: 0, savingsTotal: 0 };
   }
 
-  const engineRecipes = selectedRecipes.map((r) => {
-    const ingredients = (r.ingredients ?? [])
-      .map((line) => {
-        const ingredient_id = String(line.ingredient_id ?? line.key ?? "")
-          .trim()
-          .toLowerCase();
-
-        if (!ingredient_id) return null;
-        if (!ingredientMaster[ingredient_id]) return null;
-
-        return {
-          ingredient_id,
-          qty: 1,
-          unit: ingredientMaster[ingredient_id].base_unit,
-        };
-      })
-      .filter(Boolean);
-
-    return {
-      id: r.id,
-      ingredients,
-      restaurant_price_estimate: Number(r.restaurantPrice ?? 0),
-    };
-  });
-
-  const pantryItems = [];
+  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
 
   const result = computeWeeklySavingsEngineV1({
-    recipes: engineRecipes,
+    recipes: adaptedRecipes.recipes,
     ingredientMaster,
-    pantryItems,
+    pantryItems: adaptedPantry.pantryItems,
   });
 
   const weekly = result?.weeklyTotals ?? {};
@@ -130,36 +440,22 @@ export function selectWeeklyEngineDebug(state) {
 
   if (!selectedRecipes.length) return null;
 
-  const engineRecipes = selectedRecipes.map((r) => {
-    const ingredients = (r.ingredients ?? [])
-      .map((line) => {
-        const ingredient_id = String(line.ingredient_id ?? line.key ?? "")
-          .trim()
-          .toLowerCase();
+  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
 
-        if (!ingredient_id) return null;
-        if (!ingredientMaster[ingredient_id]) return null;
-
-        return {
-          ingredient_id,
-          qty: 1,
-          unit: ingredientMaster[ingredient_id].base_unit,
-        };
-      })
-      .filter(Boolean);
-
-    return {
-      id: r.id,
-      ingredients,
-      restaurant_price_estimate: Number(r.restaurantPrice ?? 0),
-    };
-  });
-
-  const pantryItems = [];
-
-  return computeWeeklySavingsEngineV1({
-    recipes: engineRecipes,
+  const engineResult = computeWeeklySavingsEngineV1({
+    recipes: adaptedRecipes.recipes,
     ingredientMaster,
-    pantryItems,
+    pantryItems: adaptedPantry.pantryItems,
   });
+
+  return {
+    ...engineResult,
+    selectorReport: {
+      accepted_recipe_lines: adaptedRecipes.report.accepted_recipe_lines,
+      rejected_recipe_lines: adaptedRecipes.report.rejected_recipe_lines,
+      accepted_pantry_rows: adaptedPantry.report.accepted_pantry_rows,
+      rejected_pantry_rows: adaptedPantry.report.rejected_pantry_rows,
+    },
+  };
 }
