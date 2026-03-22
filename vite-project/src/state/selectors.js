@@ -39,6 +39,11 @@ const PACKAGE_CONTAINER_BASE_UNITS = new Set([
   "jar",
 ]);
 
+const PANTRY_PACKAGE_CONTAINER_UNITS = new Set([
+  "bottle",
+  "container",
+]);
+
 function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
   const mapped_ingredient_id = getRecipeIngredientId(line);
@@ -341,7 +346,24 @@ function adaptPantryRowForEngine(item) {
   }
 
   const baseUnit = singularizeUnit(ingredientMaster[ingredient_id].base_unit);
+
   if (rawUnit !== baseUnit) {
+    if (
+      PANTRY_PACKAGE_CONTAINER_UNITS.has(rawUnit) &&
+      baseUnit === "tbsp"
+    ) {
+      return {
+        accepted: false,
+        reason: "unsupported pantry package/container-to-measure mismatch",
+        rejection_class: "unsupported_pantry_package_container_to_measure_mismatch",
+        raw_name: rawName,
+        raw_qty: rawQty,
+        raw_unit: item?.unit ?? null,
+        ingredient_id,
+        base_unit: ingredientMaster[ingredient_id].base_unit,
+      };
+    }
+
     return {
       accepted: false,
       reason: "unsupported pantry unit",
