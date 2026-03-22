@@ -4,11 +4,11 @@
 import { computeWeeklySavingsEngineV1, ingredientMaster } from "../engine/index.js";
 import { recipePresentationById } from "./recipePresentation.js";
 
- function normalizeKey(value) {
+function normalizeKey(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
- function singularizeUnit(unit) {
+function singularizeUnit(unit) {
   const normalized = normalizeKey(unit);
   if (!normalized) return "";
   if (normalized === "cloves") return "clove";
@@ -18,7 +18,7 @@ import { recipePresentationById } from "./recipePresentation.js";
   return normalized;
 }
 
- function getRecipeIngredientId(line) {
+function getRecipeIngredientId(line) {
   const rawKey = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
 
   if (!rawKey) return null;
@@ -35,7 +35,11 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   "as needed",
 ]);
 
- function adaptRecipeLineForEngine(line) {
+const PACKAGE_CONTAINER_BASE_UNITS = new Set([
+  "jar",
+]);
+
+function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
   const mapped_ingredient_id = getRecipeIngredientId(line);
 
@@ -110,6 +114,19 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
     }
 
     if (unit !== baseUnit) {
+      if (PACKAGE_CONTAINER_BASE_UNITS.has(baseUnit)) {
+        return {
+          accepted: false,
+          reason: "unsupported recipe package/container-base mismatch",
+          rejection_class: "unsupported_recipe_package_container_base_mismatch",
+          source_key,
+          mapped_ingredient_id,
+          raw_qty: rawQty,
+          parsed_unit: unit,
+          base_unit: ingredient.base_unit,
+        };
+      }
+
       return {
         accepted: false,
         reason: "unit does not match base unit",
@@ -168,7 +185,7 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   };
 }
 
- function adaptRecipesForWeeklyEngine(selectedRecipes) {
+function adaptRecipesForWeeklyEngine(selectedRecipes) {
   const acceptedRecipes = [];
   const report = {
     accepted_recipe_lines: [],
@@ -225,7 +242,7 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   };
 }
 
- function computeReadinessPct(recipe, state) {
+function computeReadinessPct(recipe, state) {
   const pantryItems = state?.pantryItems ?? [];
   const overrides = state?.ingredientAvailabilityOverrides ?? {};
 
@@ -251,7 +268,7 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   return Math.round((availableCount / ingredients.length) * 100);
 }
 
- function adaptPantryRowForEngine(item) {
+function adaptPantryRowForEngine(item) {
   const rawName = normalizeKey(item?.name);
   const rawQty = Number.parseFloat(item?.quantity ?? "");
   const rawUnit = singularizeUnit(item?.unit);
@@ -347,7 +364,7 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   };
 }
 
- function adaptPantryItemsForEngine(state) {
+function adaptPantryItemsForEngine(state) {
   const pantryItems = state?.pantryItems ?? [];
   const acceptedPantryItems = [];
   const report = {
@@ -391,7 +408,7 @@ const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
   };
 }
 
- function adaptRecipeForSelectionCard(recipe, state) {
+function adaptRecipeForSelectionCard(recipe, state) {
   const presentation = recipePresentationById[recipe?.id] ?? {};
 
   const restaurantPrice = Number(
