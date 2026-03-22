@@ -4,11 +4,11 @@
 import { computeWeeklySavingsEngineV1, ingredientMaster } from "../engine/index.js";
 import { recipePresentationById } from "./recipePresentation.js";
 
-function normalizeKey(value) {
+ function normalizeKey(value) {
   return String(value ?? "").trim().toLowerCase();
 }
 
-function singularizeUnit(unit) {
+ function singularizeUnit(unit) {
   const normalized = normalizeKey(unit);
   if (!normalized) return "";
   if (normalized === "cloves") return "clove";
@@ -18,7 +18,7 @@ function singularizeUnit(unit) {
   return normalized;
 }
 
-function getRecipeIngredientId(line) {
+ function getRecipeIngredientId(line) {
   const rawKey = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
 
   if (!rawKey) return null;
@@ -28,6 +28,13 @@ function getRecipeIngredientId(line) {
   return rawKey;
 }
 
+const UNSUPPORTED_NON_QUANTITATIVE_QTY = new Set([
+  "to taste",
+  "pinch",
+  "dash",
+  "as needed",
+]);
+
  function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
   const mapped_ingredient_id = getRecipeIngredientId(line);
@@ -36,6 +43,7 @@ function getRecipeIngredientId(line) {
     return {
       accepted: false,
       reason: "missing ingredient key",
+      rejection_class: "missing_ingredient_key",
       source_key,
     };
   }
@@ -44,6 +52,7 @@ function getRecipeIngredientId(line) {
     return {
       accepted: false,
       reason: "unmapped ingredient id",
+      rejection_class: "unmapped_ingredient_id",
       source_key,
     };
   }
@@ -53,6 +62,7 @@ function getRecipeIngredientId(line) {
     return {
       accepted: false,
       reason: "ingredient id missing from ingredientMaster",
+      rejection_class: "ingredient_id_missing_from_ingredient_master",
       source_key,
       mapped_ingredient_id,
     };
@@ -63,16 +73,18 @@ function getRecipeIngredientId(line) {
     return {
       accepted: false,
       reason: "missing quantity",
+      rejection_class: "missing_quantity",
       source_key,
       mapped_ingredient_id,
       raw_qty: rawQty,
     };
   }
 
-  if (rawQty === "to taste") {
+  if (UNSUPPORTED_NON_QUANTITATIVE_QTY.has(rawQty)) {
     return {
       accepted: false,
-      reason: 'non-quantitative input: "to taste"',
+      reason: "unsupported non-quantitative recipe input",
+      rejection_class: "unsupported_non_quantitative_recipe_input",
       source_key,
       mapped_ingredient_id,
       raw_qty: rawQty,
@@ -90,6 +102,7 @@ function getRecipeIngredientId(line) {
       return {
         accepted: false,
         reason: "invalid numeric quantity",
+        rejection_class: "invalid_numeric_quantity",
         source_key,
         mapped_ingredient_id,
         raw_qty: rawQty,
@@ -100,6 +113,7 @@ function getRecipeIngredientId(line) {
       return {
         accepted: false,
         reason: "unit does not match base unit",
+        rejection_class: "unit_does_not_match_base_unit",
         source_key,
         mapped_ingredient_id,
         raw_qty: rawQty,
@@ -126,6 +140,7 @@ function getRecipeIngredientId(line) {
       return {
         accepted: false,
         reason: "invalid numeric quantity",
+        rejection_class: "invalid_numeric_quantity",
         source_key,
         mapped_ingredient_id,
         raw_qty: rawQty,
@@ -145,6 +160,7 @@ function getRecipeIngredientId(line) {
   return {
     accepted: false,
     reason: "unsupported quantity format",
+    rejection_class: "unsupported_quantity_format",
     source_key,
     mapped_ingredient_id,
     raw_qty: rawQty,
@@ -191,6 +207,7 @@ function getRecipeIngredientId(line) {
           base_unit: adapted.base_unit ?? null,
           parsed_unit: adapted.parsed_unit ?? null,
           reason: adapted.reason,
+          rejection_class: adapted.rejection_class ?? null,
         });
       }
     }
@@ -208,7 +225,7 @@ function getRecipeIngredientId(line) {
   };
 }
 
-function computeReadinessPct(recipe, state) {
+ function computeReadinessPct(recipe, state) {
   const pantryItems = state?.pantryItems ?? [];
   const overrides = state?.ingredientAvailabilityOverrides ?? {};
 
@@ -259,6 +276,7 @@ function computeReadinessPct(recipe, state) {
     return {
       accepted: false,
       reason: "missing pantry name",
+      rejection_class: "missing_pantry_name",
       raw_name: rawName,
     };
   }
@@ -267,6 +285,7 @@ function computeReadinessPct(recipe, state) {
     return {
       accepted: false,
       reason: "invalid numeric quantity",
+      rejection_class: "invalid_numeric_quantity",
       raw_name: rawName,
       raw_qty: item?.quantity ?? null,
       raw_unit: item?.unit ?? null,
@@ -285,6 +304,7 @@ function computeReadinessPct(recipe, state) {
     return {
       accepted: false,
       reason: "unmapped ingredient id",
+      rejection_class: "unmapped_ingredient_id",
       raw_name: rawName,
       raw_qty: rawQty,
       raw_unit: item?.unit ?? null,
@@ -295,6 +315,7 @@ function computeReadinessPct(recipe, state) {
     return {
       accepted: false,
       reason: "ingredient id missing from ingredientMaster",
+      rejection_class: "ingredient_id_missing_from_ingredient_master",
       raw_name: rawName,
       raw_qty: rawQty,
       raw_unit: item?.unit ?? null,
@@ -307,6 +328,7 @@ function computeReadinessPct(recipe, state) {
     return {
       accepted: false,
       reason: "unsupported pantry unit",
+      rejection_class: "unsupported_pantry_unit",
       raw_name: rawName,
       raw_qty: rawQty,
       raw_unit: item?.unit ?? null,
@@ -358,6 +380,7 @@ function computeReadinessPct(recipe, state) {
         ingredient_id: adapted.ingredient_id ?? null,
         base_unit: adapted.base_unit ?? null,
         reason: adapted.reason,
+        rejection_class: adapted.rejection_class ?? null,
       });
     }
   }
