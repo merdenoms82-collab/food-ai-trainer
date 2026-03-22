@@ -675,6 +675,107 @@ async function loadPantryItems() {
    10) RECIPE EXECUTION SCREEN (Modal)
    ========================= */
 
+function formatIngredientLabel(ingredientId) {
+  const labels = {
+    chicken: "Chicken",
+    pasta: "Pasta",
+    parmesan: "Parmesan",
+    "heavy cream": "Heavy Cream",
+    garlic: "Garlic",
+    spice: "Spices",
+    "ground beef": "Ground Beef",
+    rice: "Rice",
+    beans: "Beans",
+    cheese: "Cheese",
+    salsa: "Salsa",
+    salmon: "Salmon",
+    broccoli: "Broccoli",
+    "olive oil": "Olive Oil",
+    lemon: "Lemon",
+  };
+
+  return labels[ingredientId] || ingredientId;
+}
+
+function formatBaseQty(qty) {
+  const n = Number(qty ?? 0);
+  if (!Number.isFinite(n)) return "0";
+  return Number.isInteger(n)
+    ? String(n)
+    : String(Math.round((n + Number.EPSILON) * 100) / 100);
+}
+
+function renderWeeklyPooledCartSummary() {
+  const debug = selectWeeklyEngineDebug(appState);
+  const cart = debug?.cart ?? null;
+
+  if (!cart) {
+    return `
+      <div style="margin-top:10px; color: var(--muted); font-size:13px;">
+        Add meals to your week to see pooled shopping totals.
+      </div>
+    `;
+  }
+
+  const netRequired = cart.net_required_base ?? {};
+  const packagesToBuy = cart.packages_to_buy ?? {};
+  const costByIngredient = cart.cost_by_ingredient ?? {};
+
+  const ingredientIds = Object.keys(costByIngredient).filter((iid) => {
+    const cost = Number(costByIngredient[iid] ?? 0);
+    const net = Number(netRequired[iid] ?? 0);
+    const pkgs = Number(packagesToBuy[iid] ?? 0);
+    return cost > 0 || net > 0 || pkgs > 0;
+  });
+
+  if (!ingredientIds.length) {
+    return `
+      <div style="margin-top:10px; color: var(--muted); font-size:13px;">
+        No pooled purchases needed this week.
+      </div>
+    `;
+  }
+
+  const rows = ingredientIds
+    .sort((a, b) => formatIngredientLabel(a).localeCompare(formatIngredientLabel(b)))
+    .map((iid) => {
+      const name = formatIngredientLabel(iid);
+      const net = formatBaseQty(netRequired[iid] ?? 0);
+      const pkgs = packagesToBuy[iid] ?? 0;
+      const cost = money(costByIngredient[iid] ?? 0);
+
+      return `
+        <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
+          <div style="font-weight:800; color: var(--text);">${escapeHtml(name)}</div>
+          <div style="font-size:12px; color: var(--muted);">${escapeHtml(net)}</div>
+          <div style="font-size:12px; color: var(--muted); text-align:center;">${escapeHtml(String(pkgs))}</div>
+          <div style="font-size:12px; color: var(--text); font-weight:800; text-align:right;">${escapeHtml(cost)}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="font-size:12px; color: var(--muted); font-weight:800;">Weekly Cart Total</div>
+        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(cart.cart_total_cost ?? 0))}</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; padding:0 0 6px; font-size:11px; color: var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.04em;">
+        <div>Ingredient</div>
+        <div>Need</div>
+        <div style="text-align:center;">Packages</div>
+        <div style="text-align:right;">Cost</div>
+      </div>
+
+      <div style="display:flex; flex-direction:column;">
+        ${rows}
+      </div>
+    </div>
+  `;
+}
+
 function renderRecipeExecutionScreen(r, forDay) {
   const readiness = computeReadiness(r);
 
@@ -767,9 +868,7 @@ function renderRecipeExecutionScreen(r, forDay) {
 
       <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <summary style="cursor:pointer; font-weight:900;">Cost Breakdown</summary>
-        <div style="margin-top:10px; color: var(--muted); font-size:13px;">
-          Pooled cart math + proportional allocation is next (Savings Engine).
-        </div>
+        ${renderWeeklyPooledCartSummary()}
       </details>
 
       <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(r.id)}">
