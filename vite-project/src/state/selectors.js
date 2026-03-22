@@ -44,6 +44,37 @@ const PANTRY_PACKAGE_CONTAINER_UNITS = new Set([
   "container",
 ]);
 
+const WEIGHT_UNITS = new Set([
+  "lb",
+  "lbs",
+  "pound",
+  "pounds",
+  "oz",
+]);
+
+const VOLUME_MEASURE_UNITS = new Set([
+  "cup",
+  "cups",
+  "tbsp",
+  "tablespoon",
+  "tablespoons",
+  "tsp",
+  "teaspoon",
+  "teaspoons",
+  "pint",
+  "pints",
+  "quart",
+  "quarts",
+  "gallon",
+  "gallons",
+  "ml",
+  "milliliter",
+  "milliliters",
+  "l",
+  "liter",
+  "liters",
+]);
+
 function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
   const mapped_ingredient_id = getRecipeIngredientId(line);
@@ -356,6 +387,22 @@ function adaptPantryRowForEngine(item) {
         accepted: false,
         reason: "unsupported pantry package/container-to-measure mismatch",
         rejection_class: "unsupported_pantry_package_container_to_measure_mismatch",
+        raw_name: rawName,
+        raw_qty: rawQty,
+        raw_unit: item?.unit ?? null,
+        ingredient_id,
+        base_unit: ingredientMaster[ingredient_id].base_unit,
+      };
+    }
+
+    if (
+      WEIGHT_UNITS.has(rawUnit) &&
+      VOLUME_MEASURE_UNITS.has(baseUnit)
+    ) {
+      return {
+        accepted: false,
+        reason: "unsupported pantry weight-to-volume mismatch",
+        rejection_class: "unsupported_pantry_weight_to_volume_mismatch",
         raw_name: rawName,
         raw_qty: rawQty,
         raw_unit: item?.unit ?? null,
