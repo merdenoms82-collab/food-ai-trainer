@@ -2,6 +2,7 @@
 // Read-only selectors. UI must not compute cost math.
 
 import { computeWeeklySavingsEngineV1, ingredientMaster } from "../engine/index.js";
+import { recipePresentationById } from "./recipePresentation.js";
 
 function normalizeKey(value) {
   return String(value ?? "").trim().toLowerCase();
@@ -33,42 +34,34 @@ function computeReadinessPct(recipe, state) {
   return Math.round((availableCount / ingredients.length) * 100);
 }
 
-function adaptRecipeForSelectionCard(recipe, seedCard, state) {
-  const restaurantPrice = Number(recipe?.restaurantPrice ?? 0);
-  const homeCost = Number(recipe?.homeCost ?? 0);
+function adaptRecipeForSelectionCard(recipe, state) {
+  const presentation = recipePresentationById[recipe?.id] ?? {};
+
+  const restaurantPrice = Number(
+    presentation.restaurant_price ?? recipe?.restaurantPrice ?? 0
+  );
+  const homeCost = Number(
+    presentation.home_cost ?? recipe?.homeCost ?? 0
+  );
   const computedSavings = Math.max(0, restaurantPrice - homeCost);
 
   return {
-    id: recipe?.id ?? seedCard?.id ?? "",
-    name: seedCard?.name ?? recipe?.name ?? "",
-    image_url: seedCard?.image_url ?? recipe?.image ?? "",
-    restaurant_price: seedCard?.restaurant_price ?? restaurantPrice,
-    home_cost: seedCard?.home_cost ?? homeCost,
-    savings: seedCard?.savings ?? computedSavings,
-    readiness_pct: seedCard?.readiness_pct ?? computeReadinessPct(recipe, state),
+    id: recipe?.id ?? "",
+    name: presentation.title ?? recipe?.name ?? "",
+    image_url: presentation.image_url ?? recipe?.image ?? "",
+    restaurant_price: restaurantPrice,
+    home_cost: homeCost,
+    savings: computedSavings,
+    readiness_pct: computeReadinessPct(recipe, state),
   };
 }
 
 export function selectRecipesForGrid(state) {
-  const seedCards = state?.recipesForGrid ?? [];
   const realRecipes = state?.recipes ?? [];
 
-  if (!realRecipes.length) {
-    return seedCards;
-  }
-
-  const realById = new Map(realRecipes.map((recipe) => [recipe.id, recipe]));
-
-  const adaptedCards = seedCards
-    .map((seedCard) => {
-      const realRecipe = realById.get(seedCard?.id);
-      if (!realRecipe) return null;
-
-      return adaptRecipeForSelectionCard(realRecipe, seedCard, state);
-    })
-    .filter(Boolean);
-
-  return adaptedCards.length ? adaptedCards : seedCards;
+  return realRecipes.map((recipe) =>
+    adaptRecipeForSelectionCard(recipe, state)
+  );
 }
 
 export function selectWeeklyTotals(state) {
