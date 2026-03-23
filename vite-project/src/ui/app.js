@@ -8,39 +8,32 @@ import {
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
 
 /* =========================================================
-   DarsNest AI Kitchen OS — script.js (UI Core v1)
-   - Navigation (tabs -> pages)
-   - Modals (Welcome, Staples, Recipe modal, Backdrop)
-   - Pantry + Staples (Supabase if configured, local fallback)
-   - Home stats + Recent items render
-   - Pantry search + category filter
-   - Recipes (basic selection grid) + Add-to-Week calendar
+   DarsNest AI Kitchen OS — app.js (UI Core v1)
    ========================================================= */
 
-/* =========================
-   0) CONFIG (EDIT THIS)
-   ========================= */
-
-/**
- * ✅ Supabase setup:
- * 1) In Supabase Dashboard > Project Settings > API
- * 2) Copy: Project URL + anon public key
- * 3) Paste below
- *
- * If you leave these blank, app runs in LOCAL mode.
- */
 const SUPABASE_URL = config.supabaseUrl;
 const SUPABASE_ANON_KEY = config.supabaseAnonKey;
-
-/**
- * We’ll use a simple “device user id” until you add real auth.
- * If you later enable Supabase Auth, we’ll switch to session user_id.
- */
 const DEVICE_USER_ID_KEY = "darsnest_device_user_id";
 
-/* =========================
-   1) UTILITIES
-   ========================= */
+const WEEK_DAYS = [
+  { key: "mon", label: "Mon" },
+  { key: "tue", label: "Tue" },
+  { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" },
+  { key: "fri", label: "Fri" },
+  { key: "sat", label: "Sat" },
+  { key: "sun", label: "Sun" },
+];
+
+const MEAL_SLOTS = [
+  { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
+  { key: "dinner", label: "Dinner" },
+];
+
+const DEFAULT_PORTIONS = 2;
+const MIN_PORTIONS = 1;
+const MAX_PORTIONS = 12;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
@@ -63,10 +56,6 @@ function money(n) {
   return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
-}
-
 function debounce(fn, ms = 150) {
   let t;
   return (...args) => {
@@ -78,19 +67,110 @@ function debounce(fn, ms = 150) {
 function toast(msg, icon = "✅") {
   const el = $("#notification");
   if (!el) return;
-
   const iconEl = $("#notificationIcon");
   const textEl = $("#notificationText");
   if (iconEl) iconEl.textContent = icon;
   if (textEl) textEl.textContent = msg;
-
   el.classList.add("show");
   setTimeout(() => el.classList.remove("show"), 1600);
 }
 
-/* =========================
-   2) SUPABASE LOADER
-   ========================= */
+function normalizeKey(s) {
+  return String(s || "").trim().toLowerCase();
+}
+
+function pantryKey(item) {
+  return normalizeKey(item.name);
+}
+
+function createEmptyMealSlot() {
+  return {
+    recipeId: null,
+    portions: DEFAULT_PORTIONS,
+  };
+}
+
+function createEmptyDayPlan() {
+  return {
+    breakfast: createEmptyMealSlot(),
+    lunch: createEmptyMealSlot(),
+    dinner: createEmptyMealSlot(),
+  };
+}
+
+function ensureMealSlotShape(slotValue) {
+  if (!slotValue || typeof slotValue !== "object" || Array.isArray(slotValue)) {
+    return createEmptyMealSlot();
+  }
+
+  const recipeId = slotValue.recipeId ?? null;
+  const portions = Number.isFinite(Number(slotValue.portions))
+    ? Math.max(MIN_PORTIONS, Number(slotValue.portions))
+    : DEFAULT_PORTIONS;
+
+  return {
+    recipeId,
+    portions,
+  };
+}
+
+function ensureDayPlan(dayKey) {
+  const dayPlan = appState.mealPlan?.[dayKey];
+
+  if (!dayPlan || typeof dayPlan !== "object" || Array.isArray(dayPlan)) {
+    appState.mealPlan[dayKey] = createEmptyDayPlan();
+    return appState.mealPlan[dayKey];
+  }
+
+  dayPlan.breakfast = ensureMealSlotShape(dayPlan.breakfast);
+  dayPlan.lunch = ensureMealSlotShape(dayPlan.lunch);
+  dayPlan.dinner = ensureMealSlotShape(dayPlan.dinner);
+
+  return dayPlan;
+}
+
+function getMealSlotState(dayKey, slotKey) {
+  const dayPlan = ensureDayPlan(dayKey);
+  dayPlan[slotKey] = ensureMealSlotShape(dayPlan[slotKey]);
+  return dayPlan[slotKey];
+}
+
+function getRecipeById(recipeId) {
+  return appState.recipes.find((x) => x.id === recipeId) || null;
+}
+
+function getMealSlotLabel(slotKey) {
+  return MEAL_SLOTS.find((s) => s.key === slotKey)?.label || "Meal";
+}
+
+function scaleRecipeForDisplay(recipe, portions = DEFAULT_PORTIONS) {
+  const factor = Number(portions) / DEFAULT_PORTIONS;
+
+  return {
+    ...recipe,
+    ingredients: (recipe.ingredients ?? []).map((ing) => {
+      const raw = String(ing.qty ?? "").trim();
+      const match = raw.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+
+      if (!match) return { ...ing };
+
+      const qty = Number.parseFloat(match[1]);
+      const unitPart = match[2] ?? "";
+
+      if (!Number.isFinite(qty)) return { ...ing };
+
+      const scaledQty = Math.round((qty * factor + Number.EPSILON) * 100) / 100;
+      const qtyText = Number.isInteger(scaledQty) ? String(scaledQty) : String(scaledQty);
+
+      return {
+        ...ing,
+        qty: unitPart ? `${qtyText} ${unitPart}`.trim() : qtyText,
+      };
+    }),
+    homeCost: Number(recipe.homeCost || 0) * factor,
+    restaurantPrice: Number(recipe.restaurantPrice || 0) * factor,
+  };
+}
 
 let supabaseClient = null;
 let usingSupabase = false;
@@ -123,10 +203,6 @@ async function ensureSupabase() {
   usingSupabase = true;
   return supabaseClient;
 }
-
-/* =========================
-   3) DATA (MVP seed)
-   ========================= */
 
 const pantryStaplesDatabase = [
   { id: "salt", name: "Salt", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
@@ -208,15 +284,7 @@ const recipeSeed = [
   },
 ];
 
-/* =========================
-   4) APP STATE
-   ========================= */
-
 appState.recipes = [...recipeSeed];
-
-/* =========================
-   5) DOM REFERENCES
-   ========================= */
 
 const dom = {
   pages: {
@@ -270,25 +338,13 @@ const dom = {
   backdrop: $("#backdrop"),
 };
 
-/* =========================
-   6) RENDER HELPERS
-   ========================= */
-
-function normalizeKey(s) {
-  return String(s || "").trim().toLowerCase();
-}
-
-function pantryKey(item) {
-  return normalizeKey(item.name);
-}
-
 function computeHomeStats() {
   const total = appState.pantryItems.length;
   const fresh = appState.pantryItems.filter((x) => x.status === "fresh").length;
   const expiring = appState.pantryItems.filter((x) => x.status === "expiring").length;
   const expired = appState.pantryItems.filter((x) => x.status === "expired").length;
-
   const hasAnyStatus = appState.pantryItems.some((x) => x.status);
+
   return {
     total,
     fresh: hasAnyStatus ? fresh : total,
@@ -391,7 +447,6 @@ function computeReadiness(recipe) {
     const overrideKey = `${recipe.id}|${key}`;
     const override = appState.ingredientAvailabilityOverrides[overrideKey];
     const inPantry = pantrySet.has(key);
-
     const available = override === undefined ? inPantry : !!override;
     if (available) have++;
   }
@@ -402,83 +457,77 @@ function computeReadiness(recipe) {
 
 function renderRecipesSelectionGrid() {
   if (!dom.recipesGrid) return;
+  dom.recipesGrid.innerHTML = renderSelectionGrid(selectRecipesForGrid(appState));
+}
 
-  const USE_STATIC_SELECTION_GRID = true;
+function renderMealSlot(dayKey, slotKey) {
+  const slotState = getMealSlotState(dayKey, slotKey);
+  const recipe = slotState.recipeId ? getRecipeById(slotState.recipeId) : null;
+  const scaledRecipe = recipe ? scaleRecipeForDisplay(recipe, slotState.portions) : null;
+  const save = scaledRecipe
+    ? Math.max(0, Number(scaledRecipe.restaurantPrice || 0) - Number(scaledRecipe.homeCost || 0))
+    : 0;
 
-  if (USE_STATIC_SELECTION_GRID) {
-    dom.recipesGrid.innerHTML = renderSelectionGrid(selectRecipesForGrid(appState));
-    return;
-  }
+  const isPendingPlacement = !!appState._pendingAddRecipeId;
+  const slotLabel = getMealSlotLabel(slotKey);
 
-  const cards = appState.recipes
-    .map((r) => {
-      const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
-      const readiness = computeReadiness(r);
-      const previewIngredients = r.ingredients.slice(0, 5).map((x) => x.name).join(", ");
+  return `
+    <button
+      class="meal-slot-button"
+      type="button"
+      data-day="${dayKey}"
+      data-meal-slot="${slotKey}"
+      style="
+        width:100%;
+        display:flex;
+        flex-direction:column;
+        align-items:flex-start;
+        gap:4px;
+        padding:10px;
+        background: var(--surface);
+        border:1px solid rgba(255,255,255,.08);
+        border-radius: var(--r);
+        text-align:left;
+        cursor:pointer;
+      "
+    >
+      <div style="font-size:11px; font-weight:900; color: var(--muted); text-transform:uppercase; letter-spacing:.04em;">
+        ${escapeHtml(slotLabel)}
+      </div>
 
-      return `
-      <article class="recipe-card" data-recipe-id="${r.id}">
-        <div class="recipe-media">
-          ${
-            r.image
-              ? `<img src="${escapeAttr(r.image)}" alt="${escapeAttr(r.name)}" />`
-              : `<div style="height:100%; display:flex; align-items:center; justify-content:center; font-size:48px;">${escapeHtml(r.emoji || "🍽️")}</div>`
-          }
-        </div>
+      <div style="font-size:13px; font-weight:800; color: var(--text); line-height:1.3;">
+        ${recipe ? escapeHtml(recipe.name) : (isPendingPlacement ? `Tap to place ${escapeHtml(slotLabel)}` : "Tap to add")}
+      </div>
 
-        <div class="recipe-body">
-          <h3 class="recipe-name">${escapeHtml(r.name)}</h3>
-          <div class="recipe-restaurant">Restaurant: ${money(r.restaurantPrice)}</div>
-          <div class="recipe-home">Home: ${money(r.homeCost)}</div>
-          <div class="recipe-save">YOU SAVE ${money(save)}</div>
-          <div class="recipe-readiness">${readiness}% Ingredients Ready</div>
-          <div style="color: var(--muted); font-size: 11px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-            ${escapeHtml(previewIngredients)}
-          </div>
-
-          <button class="recipe-cta" type="button" data-add-to-week="1">Add to Week</button>
-        </div>
-      </article>
-    `;
-    })
-    .join("");
-
-  dom.recipesGrid.innerHTML =
-    cards ||
-    `
-    <div class="empty-state" style="grid-column:1/-1;">
-      <div class="empty-icon">🍽️</div>
-      <div class="empty-title">No recipes yet</div>
-      <div class="empty-subtitle">We’ll load a real database next.</div>
-    </div>
+      ${
+        recipe
+          ? `
+            <div style="font-size:11px; color: var(--muted);">${escapeHtml(String(slotState.portions))} portions</div>
+            <div style="font-size:11px; font-weight:900; color: var(--save);">+${escapeHtml(money(save))} saved</div>
+          `
+          : `<div style="font-size:11px; color: var(--muted);">—</div>`
+      }
+    </button>
   `;
 }
 
 function renderWeekCalendar() {
   if (!dom.weekCalendar) return;
 
-  const days = [
-    { key: "mon", label: "Mon" },
-    { key: "tue", label: "Tue" },
-    { key: "wed", label: "Wed" },
-    { key: "thu", label: "Thu" },
-    { key: "fri", label: "Fri" },
-    { key: "sat", label: "Sat" },
-    { key: "sun", label: "Sun" },
-  ];
-
-  dom.weekCalendar.innerHTML = days
+  dom.weekCalendar.innerHTML = WEEK_DAYS
     .map((d) => {
-      const rid = appState.mealPlan[d.key];
-      const r = rid ? appState.recipes.find((x) => x.id === rid) : null;
-      const save = r ? Math.max(0, (r.restaurantPrice || 0) - (r.homeCost || 0)) : 0;
+      ensureDayPlan(d.key);
 
       return `
       <div class="day-slot" data-day="${d.key}">
         <div class="day-name">${d.label}</div>
         <div class="day-date">—</div>
-        <div class="day-meal">${r ? escapeHtml(r.name) : "Tap to add"}</div>
-        ${r ? `<div style="font-size:11px; font-weight:900; color: var(--save);">+${money(save)} saved</div>` : ""}
+
+        <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+          ${renderMealSlot(d.key, "breakfast")}
+          ${renderMealSlot(d.key, "lunch")}
+          ${renderMealSlot(d.key, "dinner")}
+        </div>
       </div>
     `;
     })
@@ -496,10 +545,6 @@ function renderWeeklyTotals() {
   if (dom.weeklyHomeTotal) dom.weeklyHomeTotal.textContent = money(totals.homeTotal);
   if (dom.weeklySavingsTotal) dom.weeklySavingsTotal.textContent = money(totals.savingsTotal);
 }
-
-/* =========================
-   7) MODALS / MENUS
-   ========================= */
 
 function openBackdrop() {
   if (dom.backdrop) dom.backdrop.classList.add("active");
@@ -531,14 +576,28 @@ function closeStaplesModal() {
   closeBackdrop();
 }
 
-function openRecipeModal(recipeId, { forDay = null } = {}) {
-  const r = appState.recipes.find((x) => x.id === recipeId);
-  if (!r || !dom.recipeModal || !dom.recipeModalContent) return;
+function openRecipeModal(recipeId, { forDay = null, forMealSlot = null } = {}) {
+  const baseRecipe = getRecipeById(recipeId);
+  if (!baseRecipe || !dom.recipeModal || !dom.recipeModalContent) return;
+
+  const slotState =
+    forDay && forMealSlot ? getMealSlotState(forDay, forMealSlot) : { recipeId, portions: DEFAULT_PORTIONS };
+
+  const recipeForDisplay = scaleRecipeForDisplay(baseRecipe, slotState.portions);
+
+  appState._lastOpenedRecipeId = recipeId;
+  appState._lastOpenedMealSlot = forMealSlot;
+  appState._lastOpenedDay = forDay;
 
   dom.recipeModal.classList.add("active");
   openBackdrop();
-  dom.recipeModalContent.innerHTML = renderRecipeExecutionScreen(r, forDay);
+  dom.recipeModalContent.innerHTML = renderRecipeExecutionScreen(recipeForDisplay, {
+    forDay,
+    forMealSlot,
+    portions: slotState.portions,
+  });
 }
+
 function closeRecipeModal() {
   if (!dom.recipeModal) return;
   dom.recipeModal.classList.remove("active");
@@ -551,10 +610,6 @@ function toggleAddMenu(force = null) {
   const next = force === null ? !isOpen : !!force;
   dom.addMenu.classList.toggle("active", next);
 }
-
-/* =========================
-   8) STAPLES UI
-   ========================= */
 
 function renderStaplesGrid() {
   if (!dom.staplesGrid) return;
@@ -620,10 +675,6 @@ async function saveSelectedStaplesToPantry() {
   await loadPantryItems();
 }
 
-/* =========================
-   9) DATA ACCESS (Supabase + local fallback)
-   ========================= */
-
 const LOCAL_PANTRY_KEY = "darsnest_local_pantry_items";
 
 function localLoadPantry() {
@@ -671,10 +722,6 @@ async function loadPantryItems() {
   renderWeekCalendar();
 }
 
-/* =========================
-   10) RECIPE EXECUTION SCREEN (Modal)
-   ========================= */
-
 function formatIngredientLabel(ingredientId) {
   const labels = {
     chicken: "Chicken",
@@ -700,9 +747,7 @@ function formatIngredientLabel(ingredientId) {
 function formatBaseQty(qty) {
   const n = Number(qty ?? 0);
   if (!Number.isFinite(n)) return "0";
-  return Number.isInteger(n)
-    ? String(n)
-    : String(Math.round((n + Number.EPSILON) * 100) / 100);
+  return Number.isInteger(n) ? String(n) : String(Math.round((n + Number.EPSILON) * 100) / 100);
 }
 
 function renderWeeklyPooledCartSummary() {
@@ -776,16 +821,15 @@ function renderWeeklyPooledCartSummary() {
   `;
 }
 
-function renderRecipeExecutionScreen(r, forDay) {
+function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, portions = DEFAULT_PORTIONS } = {}) {
   const readiness = computeReadiness(r);
+  const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
 
   const ingredientsHtml = r.ingredients
     .map((ing) => {
       const key = normalizeKey(ing.key || ing.name);
-      const overrideKey = `${r.id}|${key}`;
-      const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
+      const overrideKey = `${appState._lastOpenedRecipeId}|${key}`;
       const inPantry = pantrySet.has(key);
-
       const override = appState.ingredientAvailabilityOverrides[overrideKey];
       const available = override === undefined ? inPantry : !!override;
 
@@ -811,21 +855,30 @@ function renderRecipeExecutionScreen(r, forDay) {
   const stepsHtml = (r.steps || [])
     .map(
       (s, idx) => `
-    <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
-      <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
-      <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
-    </li>
-  `
+      <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
+        <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
+        <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
+      </li>
+    `
     )
     .join("");
 
   const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
+  const slotContext =
+    forDay && forMealSlot
+      ? `
+        <div style="font-size:12px; color: var(--muted); font-weight:800; margin-top:6px;">
+          ${escapeHtml(forDay.toUpperCase())} • ${escapeHtml(getMealSlotLabel(forMealSlot))}
+        </div>
+      `
+      : "";
 
   return `
     <div style="display:flex; flex-direction:column; gap:14px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <div>
           <div style="font-size:18px; font-weight:900;">${escapeHtml(r.name)}</div>
+          ${slotContext}
           <div style="margin-top:6px; font-size:12px; color: var(--text); opacity:.9;">${readiness}% Ingredients Ready</div>
         </div>
         <div style="text-align:right;">
@@ -839,9 +892,8 @@ function renderRecipeExecutionScreen(r, forDay) {
         <div style="font-weight:900; margin-bottom:8px;">Portions</div>
         <div style="display:flex; gap:8px; align-items:center;">
           <button class="btn btn-secondary" type="button" data-portion-minus="1" style="height:36px;">−</button>
-          <div style="min-width:60px; text-align:center; font-weight:900;">2</div>
+          <div style="min-width:60px; text-align:center; font-weight:900;">${escapeHtml(String(portions))}</div>
           <button class="btn btn-secondary" type="button" data-portion-plus="1" style="height:36px;">+</button>
-          <div style="margin-left:auto; color: var(--muted); font-size:12px;">(Scaling engine next)</div>
         </div>
       </div>
 
@@ -871,16 +923,12 @@ function renderRecipeExecutionScreen(r, forDay) {
         ${renderWeeklyPooledCartSummary()}
       </details>
 
-      <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(r.id)}">
+      <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(appState._lastOpenedRecipeId || r.id)}">
         Add to Week
       </button>
     </div>
   `;
 }
-
-/* =========================
-   11) NAVIGATION
-   ========================= */
 
 function setActivePage(pageKey) {
   appState.currentPage = pageKey;
@@ -896,10 +944,6 @@ function setActivePage(pageKey) {
 
   toggleAddMenu(false);
 }
-
-/* =========================
-   12) EVENTS
-   ========================= */
 
 function bindEvents() {
   dom.tabItems.forEach((t) => {
@@ -1005,8 +1049,9 @@ function bindEvents() {
     const addBtn = e.target.closest("[data-add-to-week]");
     if (addBtn) {
       appState._pendingAddRecipeId = recipeId;
+      appState._pendingAddMealSlot = null;
       setActivePage("meal-planner");
-      toast("Tap a day to place this meal.", "📅");
+      toast("Tap a meal slot to place this meal.", "📅");
       return;
     }
 
@@ -1026,12 +1071,41 @@ function bindEvents() {
 
       const overrideKey = `${recipeId}|${normalizeKey(ingKey)}`;
       const current = appState.ingredientAvailabilityOverrides[overrideKey];
-      appState.ingredientAvailabilityOverrides[overrideKey] = !(
-        current === undefined ? false : current
-      );
+      appState.ingredientAvailabilityOverrides[overrideKey] = !(current === undefined ? false : current);
 
-      openRecipeModal(recipeId);
+      openRecipeModal(recipeId, {
+        forDay: appState._lastOpenedDay,
+        forMealSlot: appState._lastOpenedMealSlot,
+      });
       renderRecipesSelectionGrid();
+      renderWeekCalendar();
+      return;
+    }
+
+    const minusBtn = e.target.closest("[data-portion-minus]");
+    if (minusBtn) {
+      const day = appState._lastOpenedDay;
+      const mealSlot = appState._lastOpenedMealSlot;
+      if (!day || !mealSlot) return;
+
+      const slotState = getMealSlotState(day, mealSlot);
+      slotState.portions = Math.max(MIN_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) - 1);
+
+      openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
+      renderWeekCalendar();
+      return;
+    }
+
+    const plusBtn = e.target.closest("[data-portion-plus]");
+    if (plusBtn) {
+      const day = appState._lastOpenedDay;
+      const mealSlot = appState._lastOpenedMealSlot;
+      if (!day || !mealSlot) return;
+
+      const slotState = getMealSlotState(day, mealSlot);
+      slotState.portions = Math.min(MAX_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) + 1);
+
+      openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
       renderWeekCalendar();
       return;
     }
@@ -1041,30 +1115,39 @@ function bindEvents() {
       const recipeId = addFromModal.dataset.recipeId;
       if (!recipeId) return;
       appState._pendingAddRecipeId = recipeId;
+      appState._pendingAddMealSlot = null;
       closeRecipeModal();
       setActivePage("meal-planner");
-      toast("Tap a day to place this meal.", "📅");
+      toast("Tap a meal slot to place this meal.", "📅");
     }
   });
 
   dom.weekCalendar?.addEventListener("click", (e) => {
-    const slot = e.target.closest(".day-slot");
-    if (!slot) return;
+    const mealSlotBtn = e.target.closest("[data-day][data-meal-slot]");
+    if (!mealSlotBtn) return;
 
-    const day = slot.dataset.day;
-    if (!day) return;
+    const day = mealSlotBtn.dataset.day;
+    const mealSlot = mealSlotBtn.dataset.mealSlot;
+    if (!day || !mealSlot) return;
+
+    const slotState = getMealSlotState(day, mealSlot);
 
     if (appState._pendingAddRecipeId) {
-      appState.mealPlan[day] = appState._pendingAddRecipeId;
+      slotState.recipeId = appState._pendingAddRecipeId;
+      slotState.portions = DEFAULT_PORTIONS;
+      appState._pendingAddMealSlot = mealSlot;
       appState._pendingAddRecipeId = null;
       renderWeekCalendar();
-      toast("Meal added.", "✅");
+      toast(`${getMealSlotLabel(mealSlot)} added.`, "✅");
       return;
     }
 
-    const rid = appState.mealPlan[day];
-    if (rid) openRecipeModal(rid, { forDay: day });
-    else toast("Add a recipe from Recipes tab.", "ℹ️");
+    if (slotState.recipeId) {
+      openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
+      return;
+    }
+
+    toast("Add a recipe from Recipes tab.", "ℹ️");
   });
 
   dom.startScanBtn?.addEventListener("click", () => {
@@ -1139,10 +1222,6 @@ async function addPantryItem(row) {
   await loadPantryItems();
 }
 
-/* =========================
-   13) HTML escaping
-   ========================= */
-
 function escapeHtml(str) {
   return String(str ?? "")
     .replaceAll("&", "&amp;")
@@ -1155,9 +1234,11 @@ function escapeAttr(str) {
   return escapeHtml(str).replaceAll("`", "&#096;");
 }
 
-/* =========================
-   14) INIT
-   ========================= */
+function normalizeMealPlanShape() {
+  for (const day of WEEK_DAYS) {
+    ensureDayPlan(day.key);
+  }
+}
 
 function init() {
   const seen = localStorage.getItem("darsnest_seen_welcome");
@@ -1166,11 +1247,8 @@ function init() {
     setTimeout(openWelcomeModal, 250);
   }
 
-  const originalOpenRecipeModal = openRecipeModal;
-  openRecipeModal = function patchedOpenRecipeModal(recipeId, opts) {
-    appState._lastOpenedRecipeId = recipeId;
-    return originalOpenRecipeModal(recipeId, opts);
-  };
+  appState.userId = getDeviceUserId();
+  normalizeMealPlanShape();
 
   bindEvents();
   setActivePage("home");
@@ -1185,7 +1263,7 @@ function init() {
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     console.warn("Supabase not configured. Running in LOCAL mode.");
-    toast("Running in local mode (add Supabase keys in script.js).", "ℹ️");
+    toast("Running in local mode (add Supabase keys in app.js).", "ℹ️");
   }
 }
 

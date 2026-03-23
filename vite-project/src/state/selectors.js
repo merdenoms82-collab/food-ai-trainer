@@ -4,6 +4,8 @@
 import { computeWeeklySavingsEngineV1, ingredientMaster } from "../engine/index.js";
 import { recipePresentationById } from "./recipePresentation.js";
 
+const DEFAULT_PORTIONS = 2;
+
 function normalizeKey(value) {
   return String(value ?? "").trim().toLowerCase();
 }
@@ -74,6 +76,101 @@ const VOLUME_MEASURE_UNITS = new Set([
   "liter",
   "liters",
 ]);
+
+function coerceSlot(slotValue) {
+  if (!slotValue || typeof slotValue !== "object" || Array.isArray(slotValue)) {
+    return { recipeId: null, portions: DEFAULT_PORTIONS };
+  }
+
+  const recipeId = slotValue.recipeId ?? null;
+  const parsedPortions = Number(slotValue.portions);
+  const portions =
+    Number.isFinite(parsedPortions) && parsedPortions > 0
+      ? parsedPortions
+      : DEFAULT_PORTIONS;
+
+  return {
+    recipeId,
+    portions,
+  };
+}
+
+function parseNumericQty(rawQty) {
+  const normalized = normalizeKey(rawQty);
+
+  if (!normalized) {
+    return { ok: false, reason: "missing_quantity" };
+  }
+
+  if (UNSUPPORTED_NON_QUANTITATIVE_QTY.has(normalized)) {
+    return {
+      ok: false,
+      reason: "unsupported_non_quantitative_recipe_input",
+      raw_qty: normalized,
+    };
+  }
+
+  const match = normalized.match(/^(\d+(?:\.\d+)?)\s*(.*)$/);
+  if (!match) {
+    return {
+      ok: false,
+      reason: "unsupported_quantity_format",
+      raw_qty: normalized,
+    };
+  }
+
+  const qty = Number.parseFloat(match[1]);
+  const unitPart = (match[2] ?? "").trim();
+
+  if (!Number.isFinite(qty) || qty <= 0) {
+    return {
+      ok: false,
+      reason: "invalid_numeric_quantity",
+      raw_qty: normalized,
+    };
+  }
+
+  return {
+    ok: true,
+    qty,
+    unitPart,
+    raw_qty: normalized,
+  };
+}
+
+function scaleIngredientLine(line, factor) {
+  const parsed = parseNumericQty(line?.qty ?? "");
+
+  if (!parsed.ok) {
+    return { ...line };
+  }
+
+  const scaledQty = Math.round((parsed.qty * factor + Number.EPSILON) * 100) / 100;
+  const qtyText = Number.isInteger(scaledQty) ? String(scaledQty) : String(scaledQty);
+
+  return {
+    ...line,
+    qty: parsed.unitPart ? `${qtyText} ${parsed.unitPart}`.trim() : qtyText,
+  };
+}
+
+function scaleRecipeForEngine(recipe, portions) {
+  const safePortions =
+    Number.isFinite(Number(portions)) && Number(portions) > 0
+      ? Number(portions)
+      : DEFAULT_PORTIONS;
+
+  const factor = safePortions / DEFAULT_PORTIONS;
+
+  return {
+    ...recipe,
+    restaurantPrice: Number(recipe?.restaurantPrice ?? 0) * factor,
+    homeCost: Number(recipe?.homeCost ?? 0) * factor,
+    ingredients: (recipe?.ingredients ?? []).map((line) =>
+      scaleIngredientLine(line, factor)
+    ),
+  };
+}
 
 function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
@@ -499,6 +596,28 @@ function adaptRecipeForSelectionCard(recipe, state) {
   };
 }
 
+function collectSelectedRecipesFromMealPlan(state) {
+  const mealPlan = state?.mealPlan ?? {};
+  const allRecipes = state?.recipes ?? [];
+  const scaledRecipes = [];
+
+  for (const dayPlan of Object.values(mealPlan)) {
+    if (!dayPlan || typeof dayPlan !== "object") continue;
+
+    for (const slotKey of ["breakfast", "lunch", "dinner"]) {
+      const slot = coerceSlot(dayPlan[slotKey]);
+      if (!slot.recipeId) continue;
+
+      const recipe = allRecipes.find((r) => r?.id === slot.recipeId);
+      if (!recipe) continue;
+
+      scaledRecipes.push(scaleRecipeForEngine(recipe, slot.portions));
+    }
+  }
+
+  return scaledRecipes;
+}
+
 export function selectRecipesForGrid(state) {
   const realRecipes = state?.recipes ?? [];
 
@@ -508,13 +627,7 @@ export function selectRecipesForGrid(state) {
 }
 
 export function selectWeeklyTotals(state) {
-  const mealPlan = state?.mealPlan ?? {};
-  const allRecipes = state?.recipes ?? [];
-
-  const selectedIds = Object.values(mealPlan).filter(Boolean);
-  const selectedRecipes = selectedIds
-    .map((id) => allRecipes.find((r) => r?.id === id))
-    .filter(Boolean);
+  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
 
   if (!selectedRecipes.length) {
     return { restaurantTotal: 0, homeTotal: 0, savingsTotal: 0 };
@@ -539,13 +652,7 @@ export function selectWeeklyTotals(state) {
 }
 
 export function selectWeeklyEngineDebug(state) {
-  const mealPlan = state?.mealPlan ?? {};
-  const allRecipes = state?.recipes ?? [];
-
-  const selectedIds = Object.values(mealPlan).filter(Boolean);
-  const selectedRecipes = selectedIds
-    .map((id) => allRecipes.find((r) => r?.id === id))
-    .filter(Boolean);
+  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
 
   if (!selectedRecipes.length) return null;
 

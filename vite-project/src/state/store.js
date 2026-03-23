@@ -1,6 +1,21 @@
 // src/state/store.js
 // Minimal state placeholder — no engine, no UI, no Supabase.
 
+function createEmptyMealSlot() {
+  return {
+    recipeId: null,
+    portions: 2,
+  };
+}
+
+function createEmptyDayPlan() {
+  return {
+    breakfast: createEmptyMealSlot(),
+    lunch: createEmptyMealSlot(),
+    dinner: createEmptyMealSlot(),
+  };
+}
+
 export const appState = {
   // ---- Core identity / session ----
   userId: null,
@@ -18,17 +33,20 @@ export const appState = {
   // ---- Recipes / plan (UI currently expects these) ----
   recipes: [],
   mealPlan: {
-    mon: null,
-    tue: null,
-    wed: null,
-    thu: null,
-    fri: null,
-    sat: null,
-    sun: null,
+    mon: createEmptyDayPlan(),
+    tue: createEmptyDayPlan(),
+    wed: createEmptyDayPlan(),
+    thu: createEmptyDayPlan(),
+    fri: createEmptyDayPlan(),
+    sat: createEmptyDayPlan(),
+    sun: createEmptyDayPlan(),
   },
   ingredientAvailabilityOverrides: {},
   _pendingAddRecipeId: null,
+  _pendingAddMealSlot: null,
   _lastOpenedRecipeId: null,
+  _lastOpenedMealSlot: null,
+  _lastOpenedDay: null,
 
   // Phase 2 seed data (temporary): Selection Mode cards
   recipesForGrid: [
@@ -62,6 +80,16 @@ export const appState = {
       savings: 13.75,
       readiness_pct: 71,
     },
-    
   ],
 };
+
+export function createDefaultMealSlot(recipeId = null, portions = 2) {
+  return {
+    recipeId,
+    portions,
+  };
+}
+
+export function createDefaultDayPlan() {
+  return createEmptyDayPlan();
+}
