@@ -30,7 +30,7 @@ export const appState = {
   pantryItems: [],
   selectedStaples: new Set(),
 
-  // ---- Recipes / plan (UI currently expects these) ----
+  // ---- Recipes / plan ----
   recipes: [],
   mealPlan: {
     mon: createEmptyDayPlan(),
@@ -41,12 +41,23 @@ export const appState = {
     sat: createEmptyDayPlan(),
     sun: createEmptyDayPlan(),
   },
+
   ingredientAvailabilityOverrides: {},
+
+  // ---- Pending placement flow ----
   _pendingAddRecipeId: null,
   _pendingAddMealSlot: null,
+  _pendingAddPortions: 2,
+
+  // ---- Execution / modal tracking ----
   _lastOpenedRecipeId: null,
   _lastOpenedMealSlot: null,
   _lastOpenedDay: null,
+
+  // ---- Pre-placement recipe preview portions ----
+  // Stores portion choices made before a recipe is placed into the week.
+  // Keyed by recipe id so preview state can survive close/reopen during selection.
+  _previewRecipePortionsById: {},
 
   // Phase 2 seed data (temporary): Selection Mode cards
   recipesForGrid: [

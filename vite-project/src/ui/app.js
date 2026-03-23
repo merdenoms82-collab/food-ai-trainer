@@ -135,12 +135,56 @@ function getMealSlotState(dayKey, slotKey) {
   return dayPlan[slotKey];
 }
 
+function clearMealSlot(dayKey, slotKey) {
+  const dayPlan = ensureDayPlan(dayKey);
+  dayPlan[slotKey] = createEmptyMealSlot();
+}
+
+function isSlotOpen(dayKey, slotKey) {
+  return appState._lastOpenedDay === dayKey && appState._lastOpenedMealSlot === slotKey;
+}
+
+function syncOpenSlotValidity() {
+  const day = appState._lastOpenedDay;
+  const mealSlot = appState._lastOpenedMealSlot;
+  const recipeId = appState._lastOpenedRecipeId;
+
+  if (!day || !mealSlot) return;
+
+  const slotState = getMealSlotState(day, mealSlot);
+
+  if (!slotState.recipeId || slotState.recipeId !== recipeId) {
+    closeRecipeModal();
+  }
+}
+
 function getRecipeById(recipeId) {
   return appState.recipes.find((x) => x.id === recipeId) || null;
 }
 
 function getMealSlotLabel(slotKey) {
   return MEAL_SLOTS.find((s) => s.key === slotKey)?.label || "Meal";
+}
+
+function getPreviewPortions(recipeId) {
+  const stored = Number(appState._previewRecipePortionsById?.[recipeId]);
+  if (Number.isFinite(stored) && stored > 0) {
+    return Math.max(MIN_PORTIONS, Math.min(MAX_PORTIONS, stored));
+  }
+  return DEFAULT_PORTIONS;
+}
+
+function setPreviewPortions(recipeId, portions) {
+  if (!recipeId) return;
+  const safe = Math.max(MIN_PORTIONS, Math.min(MAX_PORTIONS, Number(portions) || DEFAULT_PORTIONS));
+  appState._previewRecipePortionsById[recipeId] = safe;
+}
+
+function getActivePortionsForRecipe(recipeId, forDay = null, forMealSlot = null) {
+  if (forDay && forMealSlot) {
+    return getMealSlotState(forDay, forMealSlot).portions;
+  }
+  return getPreviewPortions(recipeId);
 }
 
 function scaleRecipeForDisplay(recipe, portions = DEFAULT_PORTIONS) {
@@ -470,6 +514,7 @@ function renderMealSlot(dayKey, slotKey) {
 
   const isPendingPlacement = !!appState._pendingAddRecipeId;
   const slotLabel = getMealSlotLabel(slotKey);
+  const openClass = isSlotOpen(dayKey, slotKey) ? " box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);" : "";
 
   return `
     <button
@@ -489,6 +534,7 @@ function renderMealSlot(dayKey, slotKey) {
         border-radius: var(--r);
         text-align:left;
         cursor:pointer;
+        ${openClass}
       "
     >
       <div style="font-size:11px; font-weight:900; color: var(--muted); text-transform:uppercase; letter-spacing:.04em;">
@@ -505,7 +551,9 @@ function renderMealSlot(dayKey, slotKey) {
             <div style="font-size:11px; color: var(--muted);">${escapeHtml(String(slotState.portions))} portions</div>
             <div style="font-size:11px; font-weight:900; color: var(--save);">+${escapeHtml(money(save))} saved</div>
           `
-          : `<div style="font-size:11px; color: var(--muted);">—</div>`
+          : isPendingPlacement
+            ? `<div style="font-size:11px; color: var(--muted);">${escapeHtml(String(appState._pendingAddPortions || DEFAULT_PORTIONS))} pending portions</div>`
+            : `<div style="font-size:11px; color: var(--muted);">—</div>`
       }
     </button>
   `;
@@ -546,6 +594,11 @@ function renderWeeklyTotals() {
   if (dom.weeklySavingsTotal) dom.weeklySavingsTotal.textContent = money(totals.savingsTotal);
 }
 
+function refreshExecutionStateAfterSlotMutation() {
+  syncOpenSlotValidity();
+  renderWeekCalendar();
+}
+
 function openBackdrop() {
   if (dom.backdrop) dom.backdrop.classList.add("active");
 }
@@ -580,10 +633,8 @@ function openRecipeModal(recipeId, { forDay = null, forMealSlot = null } = {}) {
   const baseRecipe = getRecipeById(recipeId);
   if (!baseRecipe || !dom.recipeModal || !dom.recipeModalContent) return;
 
-  const slotState =
-    forDay && forMealSlot ? getMealSlotState(forDay, forMealSlot) : { recipeId, portions: DEFAULT_PORTIONS };
-
-  const recipeForDisplay = scaleRecipeForDisplay(baseRecipe, slotState.portions);
+  const activePortions = getActivePortionsForRecipe(recipeId, forDay, forMealSlot);
+  const recipeForDisplay = scaleRecipeForDisplay(baseRecipe, activePortions);
 
   appState._lastOpenedRecipeId = recipeId;
   appState._lastOpenedMealSlot = forMealSlot;
@@ -594,13 +645,20 @@ function openRecipeModal(recipeId, { forDay = null, forMealSlot = null } = {}) {
   dom.recipeModalContent.innerHTML = renderRecipeExecutionScreen(recipeForDisplay, {
     forDay,
     forMealSlot,
-    portions: slotState.portions,
+    portions: activePortions,
   });
+}
+
+function clearOpenRecipeTracking() {
+  appState._lastOpenedRecipeId = null;
+  appState._lastOpenedMealSlot = null;
+  appState._lastOpenedDay = null;
 }
 
 function closeRecipeModal() {
   if (!dom.recipeModal) return;
   dom.recipeModal.classList.remove("active");
+  clearOpenRecipeTracking();
   closeBackdrop();
 }
 
@@ -824,6 +882,8 @@ function renderWeeklyPooledCartSummary() {
 function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, portions = DEFAULT_PORTIONS } = {}) {
   const readiness = computeReadiness(r);
   const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
+  const slotFilled = !!(forDay && forMealSlot && getMealSlotState(forDay, forMealSlot).recipeId);
+  const isSlotContext = !!(forDay && forMealSlot);
 
   const ingredientsHtml = r.ingredients
     .map((ing) => {
@@ -872,6 +932,19 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
         </div>
       `
       : "";
+
+  const primaryLabel = isSlotContext ? "Replace from Recipes" : "Add to Week";
+
+  const removeButton = slotFilled
+    ? `
+      <button class="btn btn-secondary"
+              type="button"
+              data-remove-slot="1"
+              style="height:40px;">
+        Remove from Slot
+      </button>
+    `
+    : "";
 
   return `
     <div style="display:flex; flex-direction:column; gap:14px;">
@@ -923,9 +996,12 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
         ${renderWeeklyPooledCartSummary()}
       </details>
 
-      <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(appState._lastOpenedRecipeId || r.id)}">
-        Add to Week
-      </button>
+      <div style="display:flex; gap:10px;">
+        <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(appState._lastOpenedRecipeId || r.id)}" style="flex:1;">
+          ${escapeHtml(primaryLabel)}
+        </button>
+        ${removeButton}
+      </div>
     </div>
   `;
 }
@@ -1049,9 +1125,10 @@ function bindEvents() {
     const addBtn = e.target.closest("[data-add-to-week]");
     if (addBtn) {
       appState._pendingAddRecipeId = recipeId;
-      appState._pendingAddMealSlot = null;
+      appState._pendingAddPortions = getPreviewPortions(recipeId);
       setActivePage("meal-planner");
-      toast("Tap a meal slot to place this meal.", "📅");
+      renderWeekCalendar();
+      toast("Tap a meal slot to place or replace this meal.", "📅");
       return;
     }
 
@@ -1084,41 +1161,85 @@ function bindEvents() {
 
     const minusBtn = e.target.closest("[data-portion-minus]");
     if (minusBtn) {
+      const recipeId = appState._lastOpenedRecipeId;
+      if (!recipeId) return;
+
       const day = appState._lastOpenedDay;
       const mealSlot = appState._lastOpenedMealSlot;
-      if (!day || !mealSlot) return;
 
-      const slotState = getMealSlotState(day, mealSlot);
-      slotState.portions = Math.max(MIN_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) - 1);
+      if (day && mealSlot) {
+        const slotState = getMealSlotState(day, mealSlot);
+        if (!slotState.recipeId) return;
+        slotState.portions = Math.max(MIN_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) - 1);
+        openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
+        renderWeekCalendar();
+        return;
+      }
 
-      openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
-      renderWeekCalendar();
+      const next = Math.max(MIN_PORTIONS, getPreviewPortions(recipeId) - 1);
+      setPreviewPortions(recipeId, next);
+      openRecipeModal(recipeId);
       return;
     }
 
     const plusBtn = e.target.closest("[data-portion-plus]");
     if (plusBtn) {
+      const recipeId = appState._lastOpenedRecipeId;
+      if (!recipeId) return;
+
+      const day = appState._lastOpenedDay;
+      const mealSlot = appState._lastOpenedMealSlot;
+
+      if (day && mealSlot) {
+        const slotState = getMealSlotState(day, mealSlot);
+        if (!slotState.recipeId) return;
+        slotState.portions = Math.min(MAX_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) + 1);
+        openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
+        renderWeekCalendar();
+        return;
+      }
+
+      const next = Math.min(MAX_PORTIONS, getPreviewPortions(recipeId) + 1);
+      setPreviewPortions(recipeId, next);
+      openRecipeModal(recipeId);
+      return;
+    }
+
+    const removeBtn = e.target.closest("[data-remove-slot]");
+    if (removeBtn) {
       const day = appState._lastOpenedDay;
       const mealSlot = appState._lastOpenedMealSlot;
       if (!day || !mealSlot) return;
 
-      const slotState = getMealSlotState(day, mealSlot);
-      slotState.portions = Math.min(MAX_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) + 1);
-
-      openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
-      renderWeekCalendar();
+      clearMealSlot(day, mealSlot);
+      toast(`${getMealSlotLabel(mealSlot)} cleared.`, "🗑️");
+      refreshExecutionStateAfterSlotMutation();
       return;
     }
 
-    const addFromModal = e.target.closest("[data-add-week-from-modal]");
-    if (addFromModal) {
-      const recipeId = addFromModal.dataset.recipeId;
+    const addOrReplaceBtn = e.target.closest("[data-add-week-from-modal]");
+    if (addOrReplaceBtn) {
+      const recipeId = addOrReplaceBtn.dataset.recipeId;
       if (!recipeId) return;
+
+      const isSlotContext = !!(appState._lastOpenedDay && appState._lastOpenedMealSlot);
+
       appState._pendingAddRecipeId = recipeId;
-      appState._pendingAddMealSlot = null;
+      appState._pendingAddPortions = isSlotContext
+        ? getMealSlotState(appState._lastOpenedDay, appState._lastOpenedMealSlot).portions
+        : getPreviewPortions(recipeId);
+
       closeRecipeModal();
-      setActivePage("meal-planner");
-      toast("Tap a meal slot to place this meal.", "📅");
+      setActivePage(isSlotContext ? "recipes" : "meal-planner");
+      renderWeekCalendar();
+
+      toast(
+        isSlotContext
+          ? "Choose a recipe to replace this slot."
+          : "Tap a meal slot to add this recipe.",
+        "📅"
+      );
+      return;
     }
   });
 
@@ -1133,12 +1254,23 @@ function bindEvents() {
     const slotState = getMealSlotState(day, mealSlot);
 
     if (appState._pendingAddRecipeId) {
+      const wasFilled = !!slotState.recipeId;
+      const shouldPreservePortions = wasFilled && slotState.portions > 0;
+
       slotState.recipeId = appState._pendingAddRecipeId;
-      slotState.portions = DEFAULT_PORTIONS;
-      appState._pendingAddMealSlot = mealSlot;
+      slotState.portions = shouldPreservePortions
+        ? slotState.portions
+        : Math.max(MIN_PORTIONS, Math.min(MAX_PORTIONS, Number(appState._pendingAddPortions || DEFAULT_PORTIONS)));
+
       appState._pendingAddRecipeId = null;
+      appState._pendingAddPortions = DEFAULT_PORTIONS;
+
+      if (isSlotOpen(day, mealSlot)) {
+        openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
+      }
+
       renderWeekCalendar();
-      toast(`${getMealSlotLabel(mealSlot)} added.`, "✅");
+      toast(wasFilled ? `${getMealSlotLabel(mealSlot)} replaced.` : `${getMealSlotLabel(mealSlot)} added.`, "✅");
       return;
     }
 
