@@ -4,6 +4,7 @@ import {
   selectRecipesForGrid,
   selectWeeklyTotals,
   selectWeeklyEngineDebug,
+  selectChefMayaHelp,
 } from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
 
@@ -879,11 +880,91 @@ function renderWeeklyPooledCartSummary() {
   `;
 }
 
+function renderChefMayaSection(title, items, renderItem) {
+  if (!items?.length) return "";
+
+  return `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="font-size:12px; color: var(--text); font-weight:900; letter-spacing:.02em;">
+        ${escapeHtml(title)}
+      </div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        ${items.map(renderItem).join("")}
+      </div>
+    </div>
+  `;
+}
+
+function renderChefMayaHelpBlock(help) {
+  const stepClarifications = renderChefMayaSection(
+    "Step clarification",
+    help?.stepClarifications ?? [],
+    (item) => `
+      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
+        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
+          ${escapeHtml(item.title)}
+        </div>
+        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
+          ${escapeHtml(item.detail)}
+        </div>
+      </div>
+    `
+  );
+
+  const substitutions = renderChefMayaSection(
+    "Safe substitutions",
+    help?.substitutions ?? [],
+    (item) => `
+      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
+        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
+          ${escapeHtml(item.ingredient)}
+        </div>
+        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
+          ${escapeHtml(item.guidance)}
+        </div>
+      </div>
+    `
+  );
+
+  const timingTechnique = renderChefMayaSection(
+    "Timing & technique",
+    help?.timingAndTechnique ?? [],
+    (item) => `
+      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
+        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
+          ${escapeHtml(item.title)}
+        </div>
+        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
+          ${escapeHtml(item.detail)}
+        </div>
+      </div>
+    `
+  );
+
+  return `
+    <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
+      <summary style="cursor:pointer; font-weight:900;">Chef Maya Help</summary>
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:12px;">
+        <div style="color: var(--muted); line-height:1.45; font-size:13px;">
+          ${escapeHtml(help?.intro ?? "")}
+        </div>
+        ${stepClarifications}
+        ${substitutions}
+        ${timingTechnique}
+      </div>
+    </details>
+  `;
+}
+
 function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, portions = DEFAULT_PORTIONS } = {}) {
   const readiness = computeReadiness(r);
   const pantrySet = new Set(appState.pantryItems.map((p) => pantryKey(p)));
   const slotFilled = !!(forDay && forMealSlot && getMealSlotState(forDay, forMealSlot).recipeId);
   const isSlotContext = !!(forDay && forMealSlot);
+  const chefMayaHelp = selectChefMayaHelp(r, {
+    portions,
+    readinessPct: readiness,
+  });
 
   const ingredientsHtml = r.ingredients
     .map((ing) => {
@@ -984,12 +1065,7 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
         </ol>
       </div>
 
-      <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
-        <summary style="cursor:pointer; font-weight:900;">Chef Maya Help</summary>
-        <div style="margin-top:10px; color: var(--muted); line-height:1.45; font-size:13px;">
-          Ask me about timing, substitutions, and technique. (We’ll wire the assistant next.)
-        </div>
-      </details>
+      ${renderChefMayaHelpBlock(chefMayaHelp)}
 
       <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <summary style="cursor:pointer; font-weight:900;">Cost Breakdown</summary>
