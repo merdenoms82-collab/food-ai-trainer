@@ -16,6 +16,44 @@ function createEmptyDayPlan() {
   };
 }
 
+function createDefaultFeatureAvailability() {
+  return {
+    selectionMode: {
+      free: true,
+      premium: true,
+    },
+    weeklyPlanning: {
+      free: true,
+      premium: true,
+    },
+    shoppingPooling: {
+      free: true,
+      premium: true,
+    },
+    executionMode: {
+      free: true,
+      premium: true,
+    },
+    chefMaya: {
+      free: false,
+      premium: true,
+    },
+    pantryScanner: {
+      free: false,
+      premium: true,
+    },
+  };
+}
+
+function createDefaultEntitlements() {
+  return {
+    plan: "free",
+    status: "active",
+    localDevBypass: true,
+    featureAvailability: createDefaultFeatureAvailability(),
+  };
+}
+
 export const appState = {
   // ---- Core identity / session ----
   userId: null,
@@ -43,6 +81,9 @@ export const appState = {
   },
 
   ingredientAvailabilityOverrides: {},
+
+  // ---- Entitlements / future freemium prep ----
+  entitlements: createDefaultEntitlements(),
 
   // ---- Pending placement flow ----
   _pendingAddRecipeId: null,
@@ -103,4 +144,8 @@ export function createDefaultMealSlot(recipeId = null, portions = 2) {
 
 export function createDefaultDayPlan() {
   return createEmptyDayPlan();
+}
+
+export function createDefaultEntitlementState() {
+  return createDefaultEntitlements();
 }
