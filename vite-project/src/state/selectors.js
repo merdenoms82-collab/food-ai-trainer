@@ -77,6 +77,79 @@ const VOLUME_MEASURE_UNITS = new Set([
   "liters",
 ]);
 
+const CHEF_MAYA_SUBSTITUTIONS = {
+  "chicken breast": {
+    label: "Chicken Breast",
+    guidance:
+      "Boneless chicken thighs are the safest swap. Keep the pieces similar in size and cook until fully done before slicing.",
+  },
+  pasta: {
+    label: "Pasta",
+    guidance:
+      "Use any similar pasta shape you already have. Check the package time and stop at al dente so it finishes well in the sauce.",
+  },
+  parmesan: {
+    label: "Parmesan",
+    guidance:
+      "Romano or an Italian hard-cheese blend works well. Add a little at a time because saltier cheeses can tighten the sauce faster.",
+  },
+  "heavy cream": {
+    label: "Heavy Cream",
+    guidance:
+      "Half-and-half is a safe lighter swap. The sauce will be thinner, so keep the heat gentle and simmer a little longer.",
+  },
+  garlic: {
+    label: "Garlic",
+    guidance:
+      "Garlic powder works in a pinch. Add a small amount first and taste near the end rather than overdoing it early.",
+  },
+  "ground beef": {
+    label: "Ground Beef",
+    guidance:
+      "Ground turkey is the safest lean swap. Brown it fully, then season a little more assertively because it is milder than beef.",
+  },
+  rice: {
+    label: "Rice",
+    guidance:
+      "Any white rice works cleanly. If using brown rice, start it earlier because the cook time is longer.",
+  },
+  beans: {
+    label: "Beans",
+    guidance:
+      "Black beans or pinto beans are both safe here. Drain and warm them gently so they do not break down.",
+  },
+  cheese: {
+    label: "Cheese",
+    guidance:
+      "Use any mild melting cheese you already have. Add it near the end so it softens without turning oily.",
+  },
+  salsa: {
+    label: "Salsa",
+    guidance:
+      "Diced tomatoes with a pinch of salt and seasoning can stand in. Keep it simple and add moisture a little at a time.",
+  },
+  salmon: {
+    label: "Salmon",
+    guidance:
+      "A firm white fish is the safest swap. Keep the fillets similar in thickness so the timing stays close.",
+  },
+  broccoli: {
+    label: "Broccoli",
+    guidance:
+      "Cauliflower, green beans, or asparagus will all work. Roast until just tender so the vegetables still hold texture.",
+  },
+  "olive oil": {
+    label: "Olive Oil",
+    guidance:
+      "Any neutral cooking oil will work. Keep the amount modest so the pan coats evenly without getting heavy.",
+  },
+  lemon: {
+    label: "Lemon",
+    guidance:
+      "A small splash of vinegar can replace brightness at the finish. Add it lightly and taste before adding more.",
+  },
+};
+
 function coerceSlot(slotValue) {
   if (!slotValue || typeof slotValue !== "object" || Array.isArray(slotValue)) {
     return { recipeId: null, portions: DEFAULT_PORTIONS };
@@ -616,6 +689,196 @@ function collectSelectedRecipesFromMealPlan(state) {
   }
 
   return scaledRecipes;
+}
+
+function getChefMayaStepGuidance(stepText, stepIndex) {
+  const normalized = normalizeKey(stepText);
+
+  if (normalized.includes("boil") || normalized.includes("al dente")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Bring the water to a steady boil first, salt it if you like, and start checking a minute or two before the box time so the pasta keeps some bite.",
+    };
+  }
+
+  if (normalized.includes("season") || normalized.includes("cook chicken")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Pat the chicken dry, season the surface, and leave it in place long enough to brown before turning. Slice it after a short rest so it stays juicy.",
+    };
+  }
+
+  if (normalized.includes("simmer") || normalized.includes("cream") || normalized.includes("sauce")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Keep this part at a gentle simmer, not a hard boil. Add the cheese gradually and stir until smooth so the sauce stays creamy.",
+    };
+  }
+
+  if (normalized.includes("toss")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Add the pasta while it is still warm and toss until the sauce coats it evenly. If it looks tight, loosen it with a small splash of cooking liquid.",
+    };
+  }
+
+  if (normalized.includes("cook rice")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Start the rice early because it sets the pace for the whole meal. Keep the lid on while it cooks and let it rest briefly before fluffing.",
+    };
+  }
+
+  if (normalized.includes("brown beef")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Use a hot pan, break the meat into pieces, and let the moisture cook off so it browns instead of steaming.",
+    };
+  }
+
+  if (normalized.includes("warm beans") || normalized.includes("assemble bowls")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Warm the beans gently and build the bowls just before serving so the textures stay distinct and the rice does not turn gummy.",
+    };
+  }
+
+  if (normalized.includes("roast broccoli")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Spread the broccoli out so the heat can reach each piece. Crowding the pan traps steam and softens the edges too quickly.",
+    };
+  }
+
+  if (normalized.includes("pan-sear salmon")) {
+    return {
+      title: `Step ${stepIndex + 1} clarification`,
+      detail:
+        "Let the pan heat first, then place the salmon down and leave it mostly undisturbed so it can release cleanly when it is ready to turn.",
+    };
+  }
+
+  return {
+    title: `Step ${stepIndex + 1} clarification`,
+    detail:
+      "Read this step through once before starting, set out what you need, and keep the heat moderate unless the pan clearly needs stronger browning.",
+  };
+}
+
+function buildChefMayaStepClarifications(recipe) {
+  const steps = recipe?.steps ?? [];
+  return steps.slice(0, 4).map((stepText, index) => getChefMayaStepGuidance(stepText, index));
+}
+
+function buildChefMayaSubstitutions(recipe) {
+  const seen = new Set();
+  const substitutions = [];
+
+  for (const line of recipe?.ingredients ?? []) {
+    const key = normalizeKey(line?.key ?? line?.name);
+    if (!key || seen.has(key)) continue;
+
+    const entry = CHEF_MAYA_SUBSTITUTIONS[key];
+    if (!entry) continue;
+
+    seen.add(key);
+    substitutions.push({
+      ingredient: entry.label,
+      guidance: entry.guidance,
+    });
+  }
+
+  return substitutions.slice(0, 4);
+}
+
+function buildChefMayaTimingAndTechnique(recipe, { portions = DEFAULT_PORTIONS, readinessPct = 0 } = {}) {
+  const ingredients = (recipe?.ingredients ?? []).map((line) =>
+    normalizeKey(line?.key ?? line?.name)
+  );
+  const ingredientSet = new Set(ingredients);
+  const notes = [];
+
+  notes.push({
+    title: "Before you start",
+    detail:
+      readinessPct < 100
+        ? "Set out the ingredients you still need first, then read the steps once from top to bottom so the cook flow stays calm."
+        : "Set out your ingredients and read the steps once before turning on the heat so the cook flow stays calm."
+  });
+
+  if (ingredientSet.has("rice") || ingredientSet.has("pasta")) {
+    notes.push({
+      title: "Start the base first",
+      detail:
+        "Begin the rice or pasta early because it usually takes the longest and gives you a smoother rhythm for the rest of the recipe.",
+    });
+  }
+
+  if (ingredientSet.has("chicken breast") || ingredientSet.has("ground beef") || ingredientSet.has("salmon")) {
+    notes.push({
+      title: "Protein handling",
+      detail:
+        "Preheat the pan first and avoid moving the protein too soon. Better contact gives you cleaner browning and simpler timing.",
+    });
+  }
+
+  if (ingredientSet.has("heavy cream") || ingredientSet.has("parmesan")) {
+    notes.push({
+      title: "Sauce control",
+      detail:
+        "Use gentle heat once dairy and cheese are involved. Fast boiling can make the sauce separate or tighten more than you want.",
+    });
+  }
+
+  if (ingredientSet.has("broccoli") || ingredientSet.has("beans")) {
+    notes.push({
+      title: "Vegetable timing",
+      detail:
+        "Cook vegetables just until tender. Stopping a little early usually gives the final plate a better texture.",
+    });
+  }
+
+  if (Number(portions) > DEFAULT_PORTIONS) {
+    notes.push({
+      title: "Larger batch note",
+      detail:
+        "With bigger portions, give the pan a little more time to recover its heat between additions so the food browns instead of steaming.",
+    });
+  }
+
+  return notes.slice(0, 4);
+}
+
+export function selectChefMayaHelp(recipe, options = {}) {
+  const safeRecipe = recipe ?? {};
+  const safePortions =
+    Number.isFinite(Number(options?.portions)) && Number(options.portions) > 0
+      ? Number(options.portions)
+      : DEFAULT_PORTIONS;
+
+  const readinessPct =
+    Number.isFinite(Number(options?.readinessPct)) && Number(options.readinessPct) >= 0
+      ? Number(options.readinessPct)
+      : 0;
+
+  return {
+    intro:
+      "Chef Maya keeps the cooking flow simple here: clear step guidance, safe substitutions, and steady technique reminders.",
+    stepClarifications: buildChefMayaStepClarifications(safeRecipe),
+    substitutions: buildChefMayaSubstitutions(safeRecipe),
+    timingAndTechnique: buildChefMayaTimingAndTechnique(safeRecipe, {
+      portions: safePortions,
+      readinessPct,
+    }),
+  };
 }
 
 export function selectRecipesForGrid(state) {
