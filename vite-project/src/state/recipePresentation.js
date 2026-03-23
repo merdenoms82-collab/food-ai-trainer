@@ -1,8 +1,7 @@
 export const recipePresentationById = {
   r_chicken_alfredo: {
-    title: "Garlic Butter Chicken & Rice",
-    image_url:
-      "https://images.unsplash.com/photo-1604908176997-125f25cc500f?auto=format&fit=crop&w=1200&q=70",
+    title: "TEST CARD TITLE",
+    image_url: "",
     restaurant_price: 18.0,
     home_cost: 6.75,
   },
