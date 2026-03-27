@@ -5,11 +5,13 @@ import {
   selectWeeklyTotals,
   selectWeeklyEngineDebug,
   selectChefMayaHelp,
+  selectShoppingList,
 } from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
 
 /* =========================================================
-   DarsNest AI Kitchen OS — app.js (UI Core v1)
+   DarsNest AI Kitchen OS — app.js
+   Guided Pantry Add v1 + Shopping page wiring
    ========================================================= */
 
 const SUPABASE_URL = config.supabaseUrl;
@@ -38,6 +40,207 @@ const MAX_PORTIONS = 12;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+const GUIDED_PANTRY_CATALOG = [
+  {
+    id: "produce",
+    label: "Produce",
+    emoji: "🥦",
+    category: "produce",
+    items: [
+      {
+        id: "broccoli",
+        label: "Broccoli",
+        emoji: "🥦",
+        unitOptions: ["head", "whole"],
+      },
+      {
+        id: "onion",
+        label: "Onion",
+        emoji: "🧅",
+        unitOptions: ["whole", "lb"],
+      },
+      {
+        id: "lemon",
+        label: "Lemon",
+        emoji: "🍋",
+        unitOptions: ["whole"],
+      },
+      {
+        id: "garlic",
+        label: "Garlic",
+        emoji: "🧄",
+        unitOptions: ["clove", "whole"],
+      },
+    ],
+  },
+  {
+    id: "meat",
+    label: "Meat",
+    emoji: "🥩",
+    category: "meat",
+    items: [
+      {
+        id: "chicken",
+        label: "Chicken",
+        emoji: "🍗",
+        variants: [
+          { id: "breast", label: "Breast", fullName: "Chicken Breast", unitOptions: ["lb"] },
+          { id: "thighs", label: "Thighs", fullName: "Chicken Thighs", unitOptions: ["lb"] },
+          { id: "legs", label: "Legs", fullName: "Chicken Legs", unitOptions: ["lb"] },
+          { id: "wings", label: "Wings", fullName: "Chicken Wings", unitOptions: ["lb"] },
+        ],
+      },
+      {
+        id: "beef",
+        label: "Beef",
+        emoji: "🥩",
+        variants: [
+          { id: "ground", label: "Ground Beef", fullName: "Ground Beef", unitOptions: ["lb"] },
+          { id: "steak", label: "Steak", fullName: "Beef Steak", unitOptions: ["lb"] },
+          { id: "roast", label: "Roast", fullName: "Beef Roast", unitOptions: ["lb"] },
+        ],
+      },
+      {
+        id: "pork",
+        label: "Pork",
+        emoji: "🥓",
+        variants: [
+          { id: "chops", label: "Chops", fullName: "Pork Chops", unitOptions: ["lb"] },
+          { id: "bacon", label: "Bacon", fullName: "Bacon", unitOptions: ["lb", "pack"] },
+        ],
+      },
+      {
+        id: "salmon",
+        label: "Salmon",
+        emoji: "🐟",
+        unitOptions: ["lb"],
+      },
+    ],
+  },
+  {
+    id: "dairy",
+    label: "Dairy",
+    emoji: "🥛",
+    category: "dairy",
+    items: [
+      {
+        id: "milk",
+        label: "Milk",
+        emoji: "🥛",
+        unitOptions: ["gallon", "quart"],
+      },
+      {
+        id: "cheese",
+        label: "Cheese",
+        emoji: "🧀",
+        unitOptions: ["oz", "lb"],
+      },
+      {
+        id: "butter",
+        label: "Butter",
+        emoji: "🧈",
+        unitOptions: ["box", "stick"],
+      },
+      {
+        id: "heavy_cream",
+        label: "Heavy Cream",
+        emoji: "🥛",
+        unitOptions: ["pint", "quart"],
+      },
+    ],
+  },
+  {
+    id: "grains",
+    label: "Grains",
+    emoji: "🍚",
+    category: "grains",
+    items: [
+      {
+        id: "rice",
+        label: "Rice",
+        emoji: "🍚",
+        unitOptions: ["lb", "cup", "bag"],
+      },
+      {
+        id: "pasta",
+        label: "Pasta",
+        emoji: "🍝",
+        unitOptions: ["box", "lb"],
+      },
+      {
+        id: "bread",
+        label: "Bread",
+        emoji: "🍞",
+        unitOptions: ["loaf"],
+      },
+    ],
+  },
+  {
+    id: "canned",
+    label: "Canned",
+    emoji: "🥫",
+    category: "canned",
+    items: [
+      {
+        id: "beans",
+        label: "Beans",
+        emoji: "🫘",
+        unitOptions: ["can"],
+      },
+      {
+        id: "tomatoes",
+        label: "Tomatoes",
+        emoji: "🥫",
+        unitOptions: ["can"],
+      },
+      {
+        id: "salsa",
+        label: "Salsa",
+        emoji: "🫙",
+        unitOptions: ["jar"],
+      },
+    ],
+  },
+  {
+    id: "spices",
+    label: "Spices",
+    emoji: "🧂",
+    category: "spices",
+    items: [
+      {
+        id: "salt",
+        label: "Salt",
+        emoji: "🧂",
+        unitOptions: ["container"],
+      },
+      {
+        id: "pepper",
+        label: "Black Pepper",
+        emoji: "🧂",
+        unitOptions: ["container"],
+      },
+      {
+        id: "garlic_powder",
+        label: "Garlic Powder",
+        emoji: "🧄",
+        unitOptions: ["container"],
+      },
+      {
+        id: "onion_powder",
+        label: "Onion Powder",
+        emoji: "🧅",
+        unitOptions: ["container"],
+      },
+      {
+        id: "olive_oil",
+        label: "Olive Oil",
+        emoji: "🫒",
+        unitOptions: ["bottle"],
+      },
+    ],
+  },
+];
 
 function uid(prefix = "u") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -252,11 +455,11 @@ async function ensureSupabase() {
 const pantryStaplesDatabase = [
   { id: "salt", name: "Salt", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
   { id: "pepper", name: "Black Pepper", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
-  { id: "olive_oil", name: "Olive Oil", category: "oils", emoji: "🫒", quantity: "1", unit: "bottle" },
+  { id: "olive_oil", name: "Olive Oil", category: "spices", emoji: "🫒", quantity: "1", unit: "bottle" },
   { id: "garlic_powder", name: "Garlic Powder", category: "spices", emoji: "🧄", quantity: "1", unit: "container" },
   { id: "onion_powder", name: "Onion Powder", category: "spices", emoji: "🧅", quantity: "1", unit: "container" },
-  { id: "flour", name: "All-Purpose Flour", category: "baking", emoji: "🌾", quantity: "5", unit: "lb" },
-  { id: "sugar", name: "Sugar", category: "baking", emoji: "🍚", quantity: "4", unit: "lb" },
+  { id: "flour", name: "All-Purpose Flour", category: "grains", emoji: "🌾", quantity: "5", unit: "lb" },
+  { id: "sugar", name: "Sugar", category: "grains", emoji: "🍚", quantity: "4", unit: "lb" },
   { id: "rice", name: "Rice", category: "grains", emoji: "🍚", quantity: "2", unit: "lb" },
   { id: "pasta", name: "Pasta", category: "grains", emoji: "🍝", quantity: "1", unit: "box" },
   { id: "canned_tomatoes", name: "Canned Tomatoes", category: "canned", emoji: "🥫", quantity: "1", unit: "can" },
@@ -330,6 +533,14 @@ const recipeSeed = [
 ];
 
 appState.recipes = [...recipeSeed];
+appState._guidedPantry = {
+  step: "category",
+  categoryId: null,
+  itemId: null,
+  variantId: null,
+  quantity: "1",
+  unit: "",
+};
 
 const dom = {
   pages: {
@@ -337,6 +548,7 @@ const dom = {
     pantry: $("#pantryPage"),
     scanner: $("#scannerPage"),
     recipes: $("#recipesPage"),
+    shopping: $("#shoppingPage"),
     "meal-planner": $("#mealPlannerPage"),
   },
 
@@ -380,8 +592,404 @@ const dom = {
   weeklySavingsTotal: $("#weeklySavingsTotal"),
   generateMealPlanBtn: $("#generateMealPlanBtn"),
 
+  shoppingList: $("#shoppingList"),
+  totalItems: $("#totalItems"),
+  estimatedCost: $("#estimatedCost"),
+  estimatedSavings: $("#estimatedSavings"),
+
   backdrop: $("#backdrop"),
 };
+
+let guidedPantryDom = null;
+
+function buildGuidedPantryModal() {
+  const modal = document.createElement("div");
+  modal.className = "pantry-staples-modal";
+  modal.id = "guidedPantryModal";
+  modal.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="modal-header">
+      <div class="modal-title-wrap" style="display:flex; align-items:center; gap:10px;">
+        <button class="btn btn-secondary" id="guidedPantryBackBtn" type="button" style="height:36px; padding:0 12px; display:none;">
+          <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="modal-title" id="guidedPantryTitle">Manual Add</div>
+      </div>
+      <button class="close-btn" id="closeGuidedPantryBtn" aria-label="Close">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
+      <div id="guidedPantryIntro" style="color: var(--muted); font-size:13px; line-height:1.45;">
+        Pick a category to start.
+      </div>
+
+      <div
+        id="guidedPantryOptions"
+        style="display:grid; grid-template-columns: repeat(2, 1fr); gap:12px;"
+      ></div>
+
+      <div id="guidedPantryConfirm" style="display:none; flex-direction:column; gap:12px;">
+        <div
+          id="guidedPantryPreview"
+          class="card"
+          style="padding:12px; background: var(--surface-2);"
+        ></div>
+
+        <div class="card" style="padding:12px;">
+          <div style="font-weight:900; margin-bottom:10px;">Quantity</div>
+          <input
+            id="guidedPantryQty"
+            type="number"
+            min="1"
+            step="0.25"
+            value="1"
+            style="width:100%; height:44px; border-radius: var(--r); border:1px solid var(--divider); background: var(--surface-2); color: var(--text); padding:0 12px;"
+          />
+        </div>
+
+        <div class="card" style="padding:12px;">
+          <div style="font-weight:900; margin-bottom:10px;">Unit</div>
+          <select
+            id="guidedPantryUnit"
+            style="width:100%; height:44px; border-radius: var(--r); border:1px solid var(--divider); background: var(--surface-2); color: var(--text); padding:0 12px;"
+          ></select>
+        </div>
+
+        <button class="btn btn-primary" id="saveGuidedPantryBtn" type="button">
+          Save to Pantry
+        </button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  guidedPantryDom = {
+    modal,
+    title: $("#guidedPantryTitle"),
+    intro: $("#guidedPantryIntro"),
+    backBtn: $("#guidedPantryBackBtn"),
+    closeBtn: $("#closeGuidedPantryBtn"),
+    options: $("#guidedPantryOptions"),
+    confirm: $("#guidedPantryConfirm"),
+    preview: $("#guidedPantryPreview"),
+    qty: $("#guidedPantryQty"),
+    unit: $("#guidedPantryUnit"),
+    saveBtn: $("#saveGuidedPantryBtn"),
+  };
+}
+
+function resetGuidedPantryState() {
+  appState._guidedPantry = {
+    step: "category",
+    categoryId: null,
+    itemId: null,
+    variantId: null,
+    quantity: "1",
+    unit: "",
+  };
+}
+
+function getGuidedCategory() {
+  return GUIDED_PANTRY_CATALOG.find((x) => x.id === appState._guidedPantry.categoryId) || null;
+}
+
+function getGuidedItem() {
+  const category = getGuidedCategory();
+  if (!category) return null;
+  return category.items.find((x) => x.id === appState._guidedPantry.itemId) || null;
+}
+
+function getGuidedVariant() {
+  const item = getGuidedItem();
+  if (!item?.variants?.length) return null;
+  return item.variants.find((x) => x.id === appState._guidedPantry.variantId) || null;
+}
+
+function getGuidedUnitOptions() {
+  const variant = getGuidedVariant();
+  const item = getGuidedItem();
+  const opts = variant?.unitOptions ?? item?.unitOptions ?? ["whole"];
+  return Array.isArray(opts) && opts.length ? opts : ["whole"];
+}
+
+function getGuidedResolvedName() {
+  const item = getGuidedItem();
+  const variant = getGuidedVariant();
+
+  if (!item) return "";
+
+  if (variant?.fullName) return variant.fullName;
+  if (variant?.label) return `${item.label} ${variant.label}`.trim();
+  return item.label;
+}
+
+function getGuidedResolvedEmoji() {
+  const category = getGuidedCategory();
+  const item = getGuidedItem();
+  return item?.emoji || category?.emoji || "📦";
+}
+
+function syncGuidedUnitSelection() {
+  const options = getGuidedUnitOptions();
+  const current = appState._guidedPantry.unit;
+  if (!options.includes(current)) {
+    appState._guidedPantry.unit = options[0];
+  }
+}
+
+function openBackdrop() {
+  if (dom.backdrop) dom.backdrop.classList.add("active");
+}
+
+function closeBackdrop() {
+  if (dom.backdrop) dom.backdrop.classList.remove("active");
+}
+
+function openGuidedPantryModal() {
+  if (!guidedPantryDom) return;
+  resetGuidedPantryState();
+  renderGuidedPantryModal();
+  guidedPantryDom.modal.classList.add("active");
+  openBackdrop();
+}
+
+function closeGuidedPantryModal() {
+  if (!guidedPantryDom) return;
+  guidedPantryDom.modal.classList.remove("active");
+  closeBackdrop();
+}
+
+function renderGuidedOptionCard({ id, label, emoji, subtitle = "", selected = false, type }) {
+  return `
+    <button
+      class="staple-card ${selected ? "selected" : ""}"
+      type="button"
+      data-guided-type="${escapeAttr(type)}"
+      data-guided-id="${escapeAttr(id)}"
+      style="text-align:left; width:100%;"
+    >
+      <span class="staple-emoji">${escapeHtml(emoji || "📦")}</span>
+      <div class="staple-name">${escapeHtml(label)}</div>
+      <div class="staple-details">${escapeHtml(subtitle || "")}</div>
+      <div class="staple-checkmark"><i class="fas fa-check"></i></div>
+    </button>
+  `;
+}
+
+function renderGuidedPantryModal() {
+  if (!guidedPantryDom) return;
+
+  const state = appState._guidedPantry;
+  const category = getGuidedCategory();
+  const item = getGuidedItem();
+  const variant = getGuidedVariant();
+
+  guidedPantryDom.backBtn.style.display = state.step === "category" ? "none" : "inline-flex";
+
+  if (state.step === "category") {
+    guidedPantryDom.title.textContent = "Pick Category";
+    guidedPantryDom.intro.textContent = "Choose the pantry group first.";
+    guidedPantryDom.options.style.display = "grid";
+    guidedPantryDom.confirm.style.display = "none";
+
+    guidedPantryDom.options.innerHTML = GUIDED_PANTRY_CATALOG.map((entry) =>
+      renderGuidedOptionCard({
+        id: entry.id,
+        label: entry.label,
+        emoji: entry.emoji,
+        subtitle: "Tap to continue",
+        selected: state.categoryId === entry.id,
+        type: "category",
+      })
+    ).join("");
+    return;
+  }
+
+  if (state.step === "item" && category) {
+    guidedPantryDom.title.textContent = category.label;
+    guidedPantryDom.intro.textContent = "Choose the item you want to add.";
+    guidedPantryDom.options.style.display = "grid";
+    guidedPantryDom.confirm.style.display = "none";
+
+    guidedPantryDom.options.innerHTML = category.items.map((entry) =>
+      renderGuidedOptionCard({
+        id: entry.id,
+        label: entry.label,
+        emoji: entry.emoji || category.emoji,
+        subtitle: entry.variants?.length ? "Choose type" : "Tap to continue",
+        selected: state.itemId === entry.id,
+        type: "item",
+      })
+    ).join("");
+    return;
+  }
+
+  if (state.step === "variant" && item?.variants?.length) {
+    guidedPantryDom.title.textContent = item.label;
+    guidedPantryDom.intro.textContent = "Pick the exact type.";
+    guidedPantryDom.options.style.display = "grid";
+    guidedPantryDom.confirm.style.display = "none";
+
+    guidedPantryDom.options.innerHTML = item.variants.map((entry) =>
+      renderGuidedOptionCard({
+        id: entry.id,
+        label: entry.label,
+        emoji: item.emoji || category?.emoji,
+        subtitle: "Tap to continue",
+        selected: state.variantId === entry.id,
+        type: "variant",
+      })
+    ).join("");
+    return;
+  }
+
+  syncGuidedUnitSelection();
+
+  guidedPantryDom.title.textContent = "Confirm Item";
+  guidedPantryDom.intro.textContent = "Set quantity and unit, then save it to pantry.";
+  guidedPantryDom.options.style.display = "none";
+  guidedPantryDom.confirm.style.display = "flex";
+
+  guidedPantryDom.preview.innerHTML = `
+    <div style="display:flex; align-items:center; gap:12px;">
+      <div style="width:44px; height:44px; border-radius: var(--r); background: var(--surface); border:1px solid var(--divider); display:flex; align-items:center; justify-content:center; font-size:20px;">
+        ${escapeHtml(getGuidedResolvedEmoji())}
+      </div>
+      <div>
+        <div style="font-weight:900; font-size:14px;">${escapeHtml(getGuidedResolvedName())}</div>
+        <div style="margin-top:4px; color: var(--muted); font-size:12px;">${escapeHtml(category?.label || "")}</div>
+      </div>
+    </div>
+  `;
+
+  guidedPantryDom.qty.value = state.quantity || "1";
+  guidedPantryDom.unit.innerHTML = getGuidedUnitOptions()
+    .map((unit) => `<option value="${escapeAttr(unit)}">${escapeHtml(unit)}</option>`)
+    .join("");
+  guidedPantryDom.unit.value = state.unit;
+}
+
+function stepBackGuidedPantry() {
+  const state = appState._guidedPantry;
+
+  if (state.step === "confirm") {
+    const item = getGuidedItem();
+    state.step = item?.variants?.length ? "variant" : "item";
+    renderGuidedPantryModal();
+    return;
+  }
+
+  if (state.step === "variant") {
+    state.variantId = null;
+    state.step = "item";
+    renderGuidedPantryModal();
+    return;
+  }
+
+  if (state.step === "item") {
+    state.categoryId = null;
+    state.itemId = null;
+    state.step = "category";
+    renderGuidedPantryModal();
+  }
+}
+
+function handleGuidedSelection(type, id) {
+  const state = appState._guidedPantry;
+
+  if (type === "category") {
+    state.categoryId = id;
+    state.itemId = null;
+    state.variantId = null;
+    state.step = "item";
+    renderGuidedPantryModal();
+    return;
+  }
+
+  if (type === "item") {
+    state.itemId = id;
+    state.variantId = null;
+
+    const item = getGuidedItem();
+    if (item?.variants?.length) {
+      state.step = "variant";
+    } else {
+      state.step = "confirm";
+      syncGuidedUnitSelection();
+    }
+
+    renderGuidedPantryModal();
+    return;
+  }
+
+  if (type === "variant") {
+    state.variantId = id;
+    state.step = "confirm";
+    syncGuidedUnitSelection();
+    renderGuidedPantryModal();
+  }
+}
+
+function bindGuidedPantryEvents() {
+  if (!guidedPantryDom) return;
+
+  guidedPantryDom.closeBtn?.addEventListener("click", closeGuidedPantryModal);
+  guidedPantryDom.backBtn?.addEventListener("click", stepBackGuidedPantry);
+
+  guidedPantryDom.options?.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-guided-type][data-guided-id]");
+    if (!btn) return;
+    handleGuidedSelection(btn.dataset.guidedType, btn.dataset.guidedId);
+  });
+
+  guidedPantryDom.qty?.addEventListener("input", (e) => {
+    appState._guidedPantry.quantity = e.target.value || "1";
+  });
+
+  guidedPantryDom.unit?.addEventListener("change", (e) => {
+    appState._guidedPantry.unit = e.target.value || "";
+  });
+
+  guidedPantryDom.saveBtn?.addEventListener("click", async () => {
+    const quantity = Number.parseFloat(appState._guidedPantry.quantity);
+    const unit = appState._guidedPantry.unit;
+    const name = getGuidedResolvedName();
+    const category = getGuidedCategory();
+    const emoji = getGuidedResolvedEmoji();
+
+    if (!name || !category) {
+      toast("Pick an item first.", "ℹ️");
+      return;
+    }
+
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+      toast("Enter a valid quantity.", "ℹ️");
+      return;
+    }
+
+    if (!unit) {
+      toast("Pick a unit.", "ℹ️");
+      return;
+    }
+
+    await addPantryItem({
+      user_id: appState.userId,
+      name,
+      category: category.category,
+      quantity: String(quantity),
+      unit,
+      emoji,
+      status: "fresh",
+      expiry_date: null,
+    });
+
+    closeGuidedPantryModal();
+    toast(`${name} added to pantry.`, "✅");
+  });
+}
 
 function computeHomeStats() {
   const total = appState.pantryItems.length;
@@ -424,12 +1032,12 @@ function renderHome() {
       const cat = i.category || "uncategorized";
       const qty = i.quantity ? `${i.quantity}${i.unit ? ` ${i.unit}` : ""}` : "";
       return `
-      <div class="pantry-item" data-id="${i.id}">
-        <span class="item-category">${cat}</span>
-        <div class="item-name">${escapeHtml(i.emoji ? `${i.emoji} ${i.name}` : i.name)}</div>
-        <div class="item-details">${escapeHtml(qty || "—")}</div>
-      </div>
-    `;
+        <div class="pantry-item" data-id="${escapeAttr(i.id || "")}">
+          <span class="item-category">${escapeHtml(cat)}</span>
+          <div class="item-name">${escapeHtml(i.emoji ? `${i.emoji} ${i.name}` : i.name)}</div>
+          <div class="item-details">${escapeHtml(qty || "—")}</div>
+        </div>
+      `;
     })
     .join("");
 }
@@ -472,13 +1080,13 @@ function renderPantry() {
             : "status-fresh";
 
       return `
-      <div class="pantry-card" data-id="${i.id}">
-        <div class="item-status ${statusClass}"></div>
-        <div class="item-image">${escapeHtml(i.emoji || "📦")}</div>
-        <div class="item-name">${escapeHtml(i.name)}</div>
-        <div class="item-details">${escapeHtml((i.quantity ?? "") + (i.unit ? " " + i.unit : ""))}</div>
-      </div>
-    `;
+        <div class="pantry-card" data-id="${escapeAttr(i.id || "")}">
+          <div class="item-status ${statusClass}"></div>
+          <div class="item-image">${escapeHtml(i.emoji || "📦")}</div>
+          <div class="item-name">${escapeHtml(i.name)}</div>
+          <div class="item-details">${escapeHtml((i.quantity ?? "") + (i.unit ? " " + i.unit : ""))}</div>
+        </div>
+      `;
     })
     .join("");
 }
@@ -493,7 +1101,7 @@ function computeReadiness(recipe) {
     const override = appState.ingredientAvailabilityOverrides[overrideKey];
     const inPantry = pantrySet.has(key);
     const available = override === undefined ? inPantry : !!override;
-    if (available) have++;
+    if (available) have += 1;
   }
 
   const total = recipe.ingredients.length || 1;
@@ -568,21 +1176,22 @@ function renderWeekCalendar() {
       ensureDayPlan(d.key);
 
       return `
-      <div class="day-slot" data-day="${d.key}">
-        <div class="day-name">${d.label}</div>
-        <div class="day-date">—</div>
+        <div class="day-slot" data-day="${d.key}">
+          <div class="day-name">${d.label}</div>
+          <div class="day-date">—</div>
 
-        <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-          ${renderMealSlot(d.key, "breakfast")}
-          ${renderMealSlot(d.key, "lunch")}
-          ${renderMealSlot(d.key, "dinner")}
+          <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+            ${renderMealSlot(d.key, "breakfast")}
+            ${renderMealSlot(d.key, "lunch")}
+            ${renderMealSlot(d.key, "dinner")}
+          </div>
         </div>
-      </div>
-    `;
+      `;
     })
     .join("");
 
   renderWeeklyTotals();
+  renderShoppingPage();
 }
 
 function renderWeeklyTotals() {
@@ -595,16 +1204,63 @@ function renderWeeklyTotals() {
   if (dom.weeklySavingsTotal) dom.weeklySavingsTotal.textContent = money(totals.savingsTotal);
 }
 
+function renderShoppingPage() {
+  const shopping = selectShoppingList(appState);
+  const totals = selectWeeklyTotals(appState);
+
+  if (dom.totalItems) dom.totalItems.textContent = String(shopping.items?.length ?? 0);
+  if (dom.estimatedCost) dom.estimatedCost.textContent = money(shopping.cartTotal ?? 0);
+  if (dom.estimatedSavings) dom.estimatedSavings.textContent = money(totals.savingsTotal ?? 0);
+
+  if (!dom.shoppingList) return;
+
+  if (!shopping.hasMeals) {
+    dom.shoppingList.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">🛒</div>
+        <div class="empty-title">No meals planned yet</div>
+        <div class="empty-subtitle">Add meals to your week to build your shopping list.</div>
+      </div>
+    `;
+    return;
+  }
+
+  if (!shopping.items.length) {
+    dom.shoppingList.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">No shopping needed</div>
+        <div class="empty-subtitle">Your pantry already covers everything in this week's plan.</div>
+      </div>
+    `;
+    return;
+  }
+
+  dom.shoppingList.innerHTML = shopping.items
+    .map((item) => {
+      const needText = item.unit ? `${item.needQtyText} ${item.unit}` : item.needQtyText;
+
+      return `
+        <div class="shopping-item" style="justify-content:space-between;">
+          <div style="display:flex; align-items:center; gap:12px; flex:1;">
+            <div class="shopping-emoji">🛒</div>
+            <div class="shopping-info">
+              <div class="shopping-name">${escapeHtml(item.label)}</div>
+              <div class="shopping-details">
+                Need ${escapeHtml(needText)} • ${escapeHtml(String(item.packages))} package${item.packages === 1 ? "" : "s"}
+              </div>
+            </div>
+          </div>
+          <div style="font-weight:900;">${escapeHtml(money(item.cost))}</div>
+        </div>
+      `;
+    })
+    .join("");
+}
+
 function refreshExecutionStateAfterSlotMutation() {
   syncOpenSlotValidity();
   renderWeekCalendar();
-}
-
-function openBackdrop() {
-  if (dom.backdrop) dom.backdrop.classList.add("active");
-}
-function closeBackdrop() {
-  if (dom.backdrop) dom.backdrop.classList.remove("active");
 }
 
 function openWelcomeModal() {
@@ -612,6 +1268,7 @@ function openWelcomeModal() {
   dom.welcomeModal.classList.add("active");
   openBackdrop();
 }
+
 function closeWelcomeModal() {
   if (!dom.welcomeModal) return;
   dom.welcomeModal.classList.remove("active");
@@ -624,6 +1281,7 @@ function openStaplesModal() {
   openBackdrop();
   renderStaplesGrid();
 }
+
 function closeStaplesModal() {
   if (!dom.staplesModal) return;
   dom.staplesModal.classList.remove("active");
@@ -681,17 +1339,17 @@ function renderStaplesGrid() {
       const selected = appState.selectedStaples.has(s.id);
 
       return `
-      <div class="staple-card ${selected ? "selected" : ""} ${inPantry ? "disabled" : ""}"
-           data-staple-id="${s.id}"
-           role="button"
-           tabindex="0"
-           aria-disabled="${inPantry ? "true" : "false"}">
-        <span class="staple-emoji">${escapeHtml(s.emoji)}</span>
-        <div class="staple-name">${escapeHtml(s.name)}</div>
-        <div class="staple-details">${escapeHtml(`${s.quantity} ${s.unit}`)}</div>
-        <div class="staple-checkmark"><i class="fas fa-check"></i></div>
-      </div>
-    `;
+        <div class="staple-card ${selected ? "selected" : ""} ${inPantry ? "disabled" : ""}"
+             data-staple-id="${escapeAttr(s.id)}"
+             role="button"
+             tabindex="0"
+             aria-disabled="${inPantry ? "true" : "false"}">
+          <span class="staple-emoji">${escapeHtml(s.emoji)}</span>
+          <div class="staple-name">${escapeHtml(s.name)}</div>
+          <div class="staple-details">${escapeHtml(`${s.quantity} ${s.unit}`)}</div>
+          <div class="staple-checkmark"><i class="fas fa-check"></i></div>
+        </div>
+      `;
     })
     .join("");
 }
@@ -745,9 +1403,11 @@ function localLoadPantry() {
     return [];
   }
 }
+
 function localSavePantry(items) {
   localStorage.setItem(LOCAL_PANTRY_KEY, JSON.stringify(items));
 }
+
 function localInsertPantry(rows) {
   const all = localLoadPantry();
   const withIds = rows.map((r) => ({ ...r, id: uid("pi"), created_at: new Date().toISOString() }));
@@ -779,41 +1439,13 @@ async function loadPantryItems() {
   renderStaplesGrid();
   renderRecipesSelectionGrid();
   renderWeekCalendar();
-}
-
-function formatIngredientLabel(ingredientId) {
-  const labels = {
-    chicken: "Chicken",
-    pasta: "Pasta",
-    parmesan: "Parmesan",
-    "heavy cream": "Heavy Cream",
-    garlic: "Garlic",
-    spice: "Spices",
-    "ground beef": "Ground Beef",
-    rice: "Rice",
-    beans: "Beans",
-    cheese: "Cheese",
-    salsa: "Salsa",
-    salmon: "Salmon",
-    broccoli: "Broccoli",
-    "olive oil": "Olive Oil",
-    lemon: "Lemon",
-  };
-
-  return labels[ingredientId] || ingredientId;
-}
-
-function formatBaseQty(qty) {
-  const n = Number(qty ?? 0);
-  if (!Number.isFinite(n)) return "0";
-  return Number.isInteger(n) ? String(n) : String(Math.round((n + Number.EPSILON) * 100) / 100);
+  renderShoppingPage();
 }
 
 function renderWeeklyPooledCartSummary() {
-  const debug = selectWeeklyEngineDebug(appState);
-  const cart = debug?.cart ?? null;
+  const shopping = selectShoppingList(appState);
 
-  if (!cart) {
+  if (!shopping.hasMeals) {
     return `
       <div style="margin-top:10px; color: var(--muted); font-size:13px;">
         Add meals to your week to see pooled shopping totals.
@@ -821,18 +1453,7 @@ function renderWeeklyPooledCartSummary() {
     `;
   }
 
-  const netRequired = cart.net_required_base ?? {};
-  const packagesToBuy = cart.packages_to_buy ?? {};
-  const costByIngredient = cart.cost_by_ingredient ?? {};
-
-  const ingredientIds = Object.keys(costByIngredient).filter((iid) => {
-    const cost = Number(costByIngredient[iid] ?? 0);
-    const net = Number(netRequired[iid] ?? 0);
-    const pkgs = Number(packagesToBuy[iid] ?? 0);
-    return cost > 0 || net > 0 || pkgs > 0;
-  });
-
-  if (!ingredientIds.length) {
+  if (!shopping.items.length) {
     return `
       <div style="margin-top:10px; color: var(--muted); font-size:13px;">
         No pooled purchases needed this week.
@@ -840,20 +1461,16 @@ function renderWeeklyPooledCartSummary() {
     `;
   }
 
-  const rows = ingredientIds
-    .sort((a, b) => formatIngredientLabel(a).localeCompare(formatIngredientLabel(b)))
-    .map((iid) => {
-      const name = formatIngredientLabel(iid);
-      const net = formatBaseQty(netRequired[iid] ?? 0);
-      const pkgs = packagesToBuy[iid] ?? 0;
-      const cost = money(costByIngredient[iid] ?? 0);
+  const rows = shopping.items
+    .map((item) => {
+      const needText = item.unit ? `${item.needQtyText} ${item.unit}` : item.needQtyText;
 
       return `
         <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
-          <div style="font-weight:800; color: var(--text);">${escapeHtml(name)}</div>
-          <div style="font-size:12px; color: var(--muted);">${escapeHtml(net)}</div>
-          <div style="font-size:12px; color: var(--muted); text-align:center;">${escapeHtml(String(pkgs))}</div>
-          <div style="font-size:12px; color: var(--text); font-weight:800; text-align:right;">${escapeHtml(cost)}</div>
+          <div style="font-weight:800; color: var(--text);">${escapeHtml(item.label)}</div>
+          <div style="font-size:12px; color: var(--muted);">${escapeHtml(needText)}</div>
+          <div style="font-size:12px; color: var(--muted); text-align:center;">${escapeHtml(String(item.packages))}</div>
+          <div style="font-size:12px; color: var(--text); font-weight:800; text-align:right;">${escapeHtml(money(item.cost))}</div>
         </div>
       `;
     })
@@ -863,7 +1480,7 @@ function renderWeeklyPooledCartSummary() {
     <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <div style="font-size:12px; color: var(--muted); font-weight:800;">Weekly Cart Total</div>
-        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(cart.cart_total_cost ?? 0))}</div>
+        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(shopping.cartTotal ?? 0))}</div>
       </div>
 
       <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; padding:0 0 6px; font-size:11px; color: var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.04em;">
@@ -975,32 +1592,32 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
       const available = override === undefined ? inPantry : !!override;
 
       return `
-      <li class="ingredient-item" data-ing-key="${escapeAttr(key)}" style="display:flex; align-items:center; gap:10px;">
-        <span class="ingredient-emoji">${available ? "✔️" : "➕"}</span>
-        <div style="flex:1;">
-          <div class="ingredient-name" style="font-weight:900;">${escapeHtml(ing.name)}</div>
-          <div style="color: var(--muted); font-size:12px; margin-top:2px;">${escapeHtml(ing.qty || "")}</div>
-        </div>
-        <button class="btn btn-secondary"
-                type="button"
-                data-toggle-ingredient="1"
-                data-ing-key="${escapeAttr(key)}"
-                style="height:36px; padding:0 10px;">
-          ${available ? "Available" : "Need"}
-        </button>
-      </li>
-    `;
+        <li class="ingredient-item" data-ing-key="${escapeAttr(key)}" style="display:flex; align-items:center; gap:10px;">
+          <span class="ingredient-emoji">${available ? "✔️" : "➕"}</span>
+          <div style="flex:1;">
+            <div class="ingredient-name" style="font-weight:900;">${escapeHtml(ing.name)}</div>
+            <div style="color: var(--muted); font-size:12px; margin-top:2px;">${escapeHtml(ing.qty || "")}</div>
+          </div>
+          <button class="btn btn-secondary"
+                  type="button"
+                  data-toggle-ingredient="1"
+                  data-ing-key="${escapeAttr(key)}"
+                  style="height:36px; padding:0 10px;">
+            ${available ? "Available" : "Need"}
+          </button>
+        </li>
+      `;
     })
     .join("");
 
   const stepsHtml = (r.steps || [])
     .map(
       (s, idx) => `
-      <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
-        <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
-        <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
-      </li>
-    `
+        <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
+          <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
+          <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
+        </li>
+      `
     )
     .join("");
 
@@ -1008,23 +1625,23 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
   const slotContext =
     forDay && forMealSlot
       ? `
-        <div style="font-size:12px; color: var(--muted); font-weight:800; margin-top:6px;">
-          ${escapeHtml(forDay.toUpperCase())} • ${escapeHtml(getMealSlotLabel(forMealSlot))}
-        </div>
-      `
+          <div style="font-size:12px; color: var(--muted); font-weight:800; margin-top:6px;">
+            ${escapeHtml(forDay.toUpperCase())} • ${escapeHtml(getMealSlotLabel(forMealSlot))}
+          </div>
+        `
       : "";
 
   const primaryLabel = isSlotContext ? "Replace from Recipes" : "Add to Week";
 
   const removeButton = slotFilled
     ? `
-      <button class="btn btn-secondary"
-              type="button"
-              data-remove-slot="1"
-              style="height:40px;">
-        Remove from Slot
-      </button>
-    `
+        <button class="btn btn-secondary"
+                type="button"
+                data-remove-slot="1"
+                style="height:40px;">
+          Remove from Slot
+        </button>
+      `
     : "";
 
   return `
@@ -1095,6 +1712,10 @@ function setActivePage(pageKey) {
   });
 
   toggleAddMenu(false);
+
+  if (pageKey === "shopping") {
+    renderShoppingPage();
+  }
 }
 
 function bindEvents() {
@@ -1112,6 +1733,7 @@ function bindEvents() {
     closeStaplesModal();
     closeRecipeModal();
     closeWelcomeModal();
+    closeGuidedPantryModal();
   });
 
   dom.startOnboardingBtn?.addEventListener("click", () => {
@@ -1152,7 +1774,7 @@ function bindEvents() {
     } else if (action === "scan") {
       setActivePage("scanner");
     } else if (action === "manual-add") {
-      toast("Manual add is next (form).", "🧩");
+      openGuidedPantryModal();
     }
   });
 
@@ -1315,7 +1937,6 @@ function bindEvents() {
           : "Tap a meal slot to add this recipe.",
         "📅"
       );
-      return;
     }
   });
 
@@ -1404,10 +2025,12 @@ function bindEvents() {
 
 function guessCategory(name) {
   const n = normalizeKey(name);
-  if (n.includes("milk") || n.includes("cheese")) return "dairy";
-  if (n.includes("chicken") || n.includes("beef") || n.includes("salmon")) return "meat";
-  if (n.includes("apple") || n.includes("broccoli")) return "produce";
-  if (n.includes("bread") || n.includes("pasta") || n.includes("rice")) return "grains";
+  if (n.includes("milk") || n.includes("cheese") || n.includes("butter") || n.includes("cream")) return "dairy";
+  if (n.includes("chicken") || n.includes("beef") || n.includes("salmon") || n.includes("pork") || n.includes("bacon")) return "meat";
+  if (n.includes("apple") || n.includes("broccoli") || n.includes("onion") || n.includes("lemon") || n.includes("garlic")) return "produce";
+  if (n.includes("bread") || n.includes("pasta") || n.includes("rice") || n.includes("flour") || n.includes("sugar")) return "grains";
+  if (n.includes("salt") || n.includes("pepper") || n.includes("powder") || n.includes("oil")) return "spices";
+  if (n.includes("beans") || n.includes("tomatoes") || n.includes("salsa")) return "canned";
   return "all";
 }
 
@@ -1438,6 +2061,7 @@ function escapeHtml(str) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 function escapeAttr(str) {
   return escapeHtml(str).replaceAll("`", "&#096;");
 }
@@ -1449,6 +2073,9 @@ function normalizeMealPlanShape() {
 }
 
 function init() {
+  buildGuidedPantryModal();
+  bindGuidedPantryEvents();
+
   const seen = localStorage.getItem("darsnest_seen_welcome");
   if (!seen) {
     localStorage.setItem("darsnest_seen_welcome", "1");
@@ -1463,6 +2090,7 @@ function init() {
 
   renderRecipesSelectionGrid();
   renderWeekCalendar();
+  renderShoppingPage();
 
   loadPantryItems().catch((err) => {
     console.error(err);

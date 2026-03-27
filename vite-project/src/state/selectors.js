@@ -150,6 +150,36 @@ const CHEF_MAYA_SUBSTITUTIONS = {
   },
 };
 
+const SHOPPING_LABELS = {
+  chicken: "Chicken",
+  pasta: "Pasta",
+  parmesan: "Parmesan",
+  "heavy cream": "Heavy Cream",
+  garlic: "Garlic",
+  spice: "Spices",
+  "ground beef": "Ground Beef",
+  rice: "Rice",
+  beans: "Beans",
+  cheese: "Cheese",
+  salsa: "Salsa",
+  salmon: "Salmon",
+  broccoli: "Broccoli",
+  "olive oil": "Olive Oil",
+  lemon: "Lemon",
+};
+
+function formatIngredientLabelForShopping(ingredientId) {
+  return SHOPPING_LABELS[ingredientId] || ingredientId;
+}
+
+function formatBaseQtyForShopping(qty) {
+  const n = Number(qty ?? 0);
+  if (!Number.isFinite(n)) return "0";
+  return Number.isInteger(n)
+    ? String(n)
+    : String(Math.round((n + Number.EPSILON) * 100) / 100);
+}
+
 function coerceSlot(slotValue) {
   if (!slotValue || typeof slotValue !== "object" || Array.isArray(slotValue)) {
     return { recipeId: null, portions: DEFAULT_PORTIONS };
@@ -936,5 +966,70 @@ export function selectWeeklyEngineDebug(state) {
       accepted_pantry_rows: adaptedPantry.report.accepted_pantry_rows,
       rejected_pantry_rows: adaptedPantry.report.rejected_pantry_rows,
     },
+  };
+}
+
+export function selectShoppingList(state) {
+  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
+
+  if (!selectedRecipes.length) {
+    return {
+      hasMeals: false,
+      cartTotal: 0,
+      items: [],
+    };
+  }
+
+  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
+
+  const engineResult = computeWeeklySavingsEngineV1({
+    recipes: adaptedRecipes.recipes,
+    ingredientMaster,
+    pantryItems: adaptedPantry.pantryItems,
+  });
+
+  const cart = engineResult?.cart ?? {};
+  const netRequired = cart.net_required_base ?? {};
+  const packagesToBuy = cart.packages_to_buy ?? {};
+  const costByIngredient = cart.cost_by_ingredient ?? {};
+
+  const ingredientIds = Array.from(
+    new Set([
+      ...Object.keys(netRequired),
+      ...Object.keys(packagesToBuy),
+      ...Object.keys(costByIngredient),
+    ])
+  ).filter((ingredientId) => {
+    const needQty = Number(netRequired[ingredientId] ?? 0);
+    const packages = Number(packagesToBuy[ingredientId] ?? 0);
+    const cost = Number(costByIngredient[ingredientId] ?? 0);
+
+    return needQty > 0 || packages > 0 || cost > 0;
+  });
+
+  const items = ingredientIds
+    .map((ingredientId) => {
+      const unit = ingredientMaster[ingredientId]?.base_unit ?? "";
+      const needQty = Number(netRequired[ingredientId] ?? 0);
+      const packages = Number(packagesToBuy[ingredientId] ?? 0);
+      const cost = Number(costByIngredient[ingredientId] ?? 0);
+
+      return {
+        ingredientId,
+        label: formatIngredientLabelForShopping(ingredientId),
+        needQty,
+        needQtyText: formatBaseQtyForShopping(needQty),
+        unit,
+        packages,
+        cost,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    hasMeals: true,
+    cartTotal: Number(cart.cart_total_cost ?? 0),
+    items,
   };
 }
