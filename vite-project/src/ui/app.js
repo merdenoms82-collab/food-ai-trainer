@@ -8,10 +8,14 @@ import {
   selectShoppingList,
 } from "../state/index.js";
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
+import { GUIDED_PANTRY_CATALOG } from "../data/pantryCatalog.js";
+import { pantryStaplesDatabase } from "../data/pantryStaples.js";
+import { recipeSeed } from "../data/recipeSeed.js";
 
 /* =========================================================
    DarsNest AI Kitchen OS — app.js
    Guided Pantry Add v1 + Shopping page wiring
+   Recipes genre filter row added under AI Recipes
    ========================================================= */
 
 const SUPABASE_URL = config.supabaseUrl;
@@ -34,213 +38,26 @@ const MEAL_SLOTS = [
   { key: "dinner", label: "Dinner" },
 ];
 
+const RECIPE_GENRE_OPTIONS = [
+  { key: "all", label: "All" },
+  { key: "italian", label: "Italian" },
+  { key: "mexican", label: "Mexican" },
+  { key: "chinese", label: "Chinese" },
+  { key: "american", label: "American" },
+  { key: "comfort", label: "Classic" },
+  { key: "breakfast", label: "Breakfast" },
+  { key: "chicken", label: "Chicken" },
+  { key: "beef", label: "Beef" },
+  { key: "seafood", label: "Seafood" },
+  { key: "sauces", label: "Sauces" },
+];
+
 const DEFAULT_PORTIONS = 2;
 const MIN_PORTIONS = 1;
 const MAX_PORTIONS = 12;
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
-
-const GUIDED_PANTRY_CATALOG = [
-  {
-    id: "produce",
-    label: "Produce",
-    emoji: "🥦",
-    category: "produce",
-    items: [
-      {
-        id: "broccoli",
-        label: "Broccoli",
-        emoji: "🥦",
-        unitOptions: ["head", "whole"],
-      },
-      {
-        id: "onion",
-        label: "Onion",
-        emoji: "🧅",
-        unitOptions: ["whole", "lb"],
-      },
-      {
-        id: "lemon",
-        label: "Lemon",
-        emoji: "🍋",
-        unitOptions: ["whole"],
-      },
-      {
-        id: "garlic",
-        label: "Garlic",
-        emoji: "🧄",
-        unitOptions: ["clove", "whole"],
-      },
-    ],
-  },
-  {
-    id: "meat",
-    label: "Meat",
-    emoji: "🥩",
-    category: "meat",
-    items: [
-      {
-        id: "chicken",
-        label: "Chicken",
-        emoji: "🍗",
-        variants: [
-          { id: "breast", label: "Breast", fullName: "Chicken Breast", unitOptions: ["lb"] },
-          { id: "thighs", label: "Thighs", fullName: "Chicken Thighs", unitOptions: ["lb"] },
-          { id: "legs", label: "Legs", fullName: "Chicken Legs", unitOptions: ["lb"] },
-          { id: "wings", label: "Wings", fullName: "Chicken Wings", unitOptions: ["lb"] },
-        ],
-      },
-      {
-        id: "beef",
-        label: "Beef",
-        emoji: "🥩",
-        variants: [
-          { id: "ground", label: "Ground Beef", fullName: "Ground Beef", unitOptions: ["lb"] },
-          { id: "steak", label: "Steak", fullName: "Beef Steak", unitOptions: ["lb"] },
-          { id: "roast", label: "Roast", fullName: "Beef Roast", unitOptions: ["lb"] },
-        ],
-      },
-      {
-        id: "pork",
-        label: "Pork",
-        emoji: "🥓",
-        variants: [
-          { id: "chops", label: "Chops", fullName: "Pork Chops", unitOptions: ["lb"] },
-          { id: "bacon", label: "Bacon", fullName: "Bacon", unitOptions: ["lb", "pack"] },
-        ],
-      },
-      {
-        id: "salmon",
-        label: "Salmon",
-        emoji: "🐟",
-        unitOptions: ["lb"],
-      },
-    ],
-  },
-  {
-    id: "dairy",
-    label: "Dairy",
-    emoji: "🥛",
-    category: "dairy",
-    items: [
-      {
-        id: "milk",
-        label: "Milk",
-        emoji: "🥛",
-        unitOptions: ["gallon", "quart"],
-      },
-      {
-        id: "cheese",
-        label: "Cheese",
-        emoji: "🧀",
-        unitOptions: ["oz", "lb"],
-      },
-      {
-        id: "butter",
-        label: "Butter",
-        emoji: "🧈",
-        unitOptions: ["box", "stick"],
-      },
-      {
-        id: "heavy_cream",
-        label: "Heavy Cream",
-        emoji: "🥛",
-        unitOptions: ["pint", "quart"],
-      },
-    ],
-  },
-  {
-    id: "grains",
-    label: "Grains",
-    emoji: "🍚",
-    category: "grains",
-    items: [
-      {
-        id: "rice",
-        label: "Rice",
-        emoji: "🍚",
-        unitOptions: ["lb", "cup", "bag"],
-      },
-      {
-        id: "pasta",
-        label: "Pasta",
-        emoji: "🍝",
-        unitOptions: ["box", "lb"],
-      },
-      {
-        id: "bread",
-        label: "Bread",
-        emoji: "🍞",
-        unitOptions: ["loaf"],
-      },
-    ],
-  },
-  {
-    id: "canned",
-    label: "Canned",
-    emoji: "🥫",
-    category: "canned",
-    items: [
-      {
-        id: "beans",
-        label: "Beans",
-        emoji: "🫘",
-        unitOptions: ["can"],
-      },
-      {
-        id: "tomatoes",
-        label: "Tomatoes",
-        emoji: "🥫",
-        unitOptions: ["can"],
-      },
-      {
-        id: "salsa",
-        label: "Salsa",
-        emoji: "🫙",
-        unitOptions: ["jar"],
-      },
-    ],
-  },
-  {
-    id: "spices",
-    label: "Spices",
-    emoji: "🧂",
-    category: "spices",
-    items: [
-      {
-        id: "salt",
-        label: "Salt",
-        emoji: "🧂",
-        unitOptions: ["container"],
-      },
-      {
-        id: "pepper",
-        label: "Black Pepper",
-        emoji: "🧂",
-        unitOptions: ["container"],
-      },
-      {
-        id: "garlic_powder",
-        label: "Garlic Powder",
-        emoji: "🧄",
-        unitOptions: ["container"],
-      },
-      {
-        id: "onion_powder",
-        label: "Onion Powder",
-        emoji: "🧅",
-        unitOptions: ["container"],
-      },
-      {
-        id: "olive_oil",
-        label: "Olive Oil",
-        emoji: "🫒",
-        unitOptions: ["bottle"],
-      },
-    ],
-  },
-];
 
 function uid(prefix = "u") {
   return `${prefix}_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`;
@@ -452,86 +269,6 @@ async function ensureSupabase() {
   return supabaseClient;
 }
 
-const pantryStaplesDatabase = [
-  { id: "salt", name: "Salt", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
-  { id: "pepper", name: "Black Pepper", category: "spices", emoji: "🧂", quantity: "1", unit: "container" },
-  { id: "olive_oil", name: "Olive Oil", category: "spices", emoji: "🫒", quantity: "1", unit: "bottle" },
-  { id: "garlic_powder", name: "Garlic Powder", category: "spices", emoji: "🧄", quantity: "1", unit: "container" },
-  { id: "onion_powder", name: "Onion Powder", category: "spices", emoji: "🧅", quantity: "1", unit: "container" },
-  { id: "flour", name: "All-Purpose Flour", category: "grains", emoji: "🌾", quantity: "5", unit: "lb" },
-  { id: "sugar", name: "Sugar", category: "grains", emoji: "🍚", quantity: "4", unit: "lb" },
-  { id: "rice", name: "Rice", category: "grains", emoji: "🍚", quantity: "2", unit: "lb" },
-  { id: "pasta", name: "Pasta", category: "grains", emoji: "🍝", quantity: "1", unit: "box" },
-  { id: "canned_tomatoes", name: "Canned Tomatoes", category: "canned", emoji: "🥫", quantity: "1", unit: "can" },
-];
-
-const recipeSeed = [
-  {
-    id: "r_chicken_alfredo",
-    name: "Chicken Alfredo",
-    image: null,
-    emoji: "🍝",
-    restaurantPrice: 22,
-    homeCost: 8,
-    ingredients: [
-      { name: "Chicken Breast", qty: "1.5 lb", key: "chicken breast" },
-      { name: "Pasta", qty: "1 box", key: "pasta" },
-      { name: "Parmesan", qty: "8 oz", key: "parmesan" },
-      { name: "Heavy Cream", qty: "1 pint", key: "heavy cream" },
-      { name: "Garlic", qty: "3 cloves", key: "garlic" },
-      { name: "Salt", qty: "to taste", key: "salt" },
-      { name: "Black Pepper", qty: "to taste", key: "black pepper" },
-    ],
-    steps: [
-      "Boil pasta until al dente.",
-      "Season and cook chicken, slice.",
-      "Simmer cream, add parmesan and garlic.",
-      "Toss pasta in sauce, top with chicken.",
-    ],
-  },
-  {
-    id: "r_taco_bowls",
-    name: "Taco Bowls",
-    image: null,
-    emoji: "🌮",
-    restaurantPrice: 18,
-    homeCost: 6,
-    ingredients: [
-      { name: "Ground Beef", qty: "1 lb", key: "ground beef" },
-      { name: "Rice", qty: "1 cup", key: "rice" },
-      { name: "Beans", qty: "1 can", key: "beans" },
-      { name: "Cheese", qty: "8 oz", key: "cheese" },
-      { name: "Salsa", qty: "1 cup", key: "salsa" },
-      { name: "Salt", qty: "to taste", key: "salt" },
-    ],
-    steps: [
-      "Cook rice.",
-      "Brown beef with seasoning.",
-      "Warm beans, assemble bowls.",
-    ],
-  },
-  {
-    id: "r_salmon_veg",
-    name: "Salmon + Veg",
-    image: null,
-    emoji: "🐟",
-    restaurantPrice: 28,
-    homeCost: 12,
-    ingredients: [
-      { name: "Salmon", qty: "1.5 lb", key: "salmon" },
-      { name: "Broccoli", qty: "1 head", key: "broccoli" },
-      { name: "Olive Oil", qty: "1 tbsp", key: "olive oil" },
-      { name: "Salt", qty: "to taste", key: "salt" },
-      { name: "Black Pepper", qty: "to taste", key: "black pepper" },
-      { name: "Lemon", qty: "1", key: "lemon" },
-    ],
-    steps: [
-      "Roast broccoli with oil, salt, pepper.",
-      "Pan-sear salmon, finish with lemon.",
-    ],
-  },
-];
-
 appState.recipes = [...recipeSeed];
 appState._guidedPantry = {
   step: "category",
@@ -541,6 +278,7 @@ appState._guidedPantry = {
   quantity: "1",
   unit: "",
 };
+appState.currentRecipeGenre = appState.currentRecipeGenre || "all";
 
 const dom = {
   pages: {
@@ -581,6 +319,7 @@ const dom = {
 
   recipeTabs: $$(".recipes-tab"),
   recipesGrid: $("#recipesGrid"),
+  recipeGenreBar: null,
 
   startScanBtn: $("#startScanBtn"),
   scannedItemEmoji: $("#scannedItemEmoji"),
@@ -601,6 +340,120 @@ const dom = {
 };
 
 let guidedPantryDom = null;
+
+function ensureRecipeGenreBar() {
+  if (dom.recipeGenreBar || !dom.recipesGrid) return;
+
+  const bar = document.createElement("div");
+  bar.id = "recipeGenreBar";
+  bar.style.display = "grid";
+  bar.style.gridTemplateColumns = "repeat(auto-fit, minmax(110px, 1fr))";
+  bar.style.gap = "8px";
+  bar.style.width = "100%";
+  bar.style.padding = "0 0 12px";
+  bar.style.margin = "4px 0 12px";
+
+  dom.recipesGrid.parentNode?.insertBefore(bar, dom.recipesGrid);
+  dom.recipeGenreBar = bar;
+}
+
+function recipeHasNameOrIngredient(recipe, terms) {
+  const haystack = [
+    recipe.name,
+    ...(recipe.ingredients || []).map((x) => x.name),
+    ...(recipe.ingredients || []).map((x) => x.key),
+  ]
+    .filter(Boolean)
+    .map(normalizeKey)
+    .join(" ");
+
+  return terms.some((term) => haystack.includes(normalizeKey(term)));
+}
+
+function inferRecipeGenres(recipe) {
+  const explicit = Array.isArray(recipe.genres)
+    ? recipe.genres.map(normalizeKey)
+    : recipe.genre
+      ? [normalizeKey(recipe.genre)]
+      : [];
+
+  const genres = new Set(explicit);
+
+  if (recipeHasNameOrIngredient(recipe, ["alfredo", "parmesan", "mozzarella", "ricotta", "marinara", "spaghetti", "fettuccine", "penne", "lasagna", "ziti"])) {
+    genres.add("italian");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["taco", "burrito", "enchilada", "quesadilla", "salsa", "refried beans", "tortilla", "taco shells"])) {
+    genres.add("mexican");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["stir fry", "fried rice", "soy sauce", "teriyaki", "ramen", "rice noodles"])) {
+    genres.add("chinese");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["burger", "sloppy joe", "grilled cheese", "baked potato", "bacon", "toast", "bbq", "pot pie"])) {
+    genres.add("american");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["stew", "chili", "mac", "pot pie", "baked ziti", "grilled cheese", "loaded", "sliders"])) {
+    genres.add("comfort");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["breakfast", "pancake", "egg", "bacon", "sausage", "toast", "waffle", "burrito"])) {
+    genres.add("breakfast");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["chicken breast", "chicken thighs", "chicken", "buffalo chicken"])) {
+    genres.add("chicken");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["ground beef", "beef", "sirloin", "brisket", "stew meat"])) {
+    genres.add("beef");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["salmon", "shrimp", "tilapia", "cod", "catfish", "crab", "scallops"])) {
+    genres.add("seafood");
+  }
+
+  if (recipeHasNameOrIngredient(recipe, ["sauce", "alfredo", "marinara", "pasta sauce", "bbq sauce", "teriyaki sauce", "enchilada sauce", "gravy", "curry sauce"])) {
+    genres.add("sauces");
+  }
+
+  if (!genres.size) {
+    genres.add("american");
+  }
+
+  return Array.from(genres);
+}
+
+function recipeMatchesGenre(recipe, genreKey) {
+  if (genreKey === "all") return true;
+  return inferRecipeGenres(recipe).includes(normalizeKey(genreKey));
+}
+
+function renderRecipeGenreBar() {
+  ensureRecipeGenreBar();
+  if (!dom.recipeGenreBar) return;
+
+  const showBar = appState.currentRecipeTab === "ai-recipes";
+  dom.recipeGenreBar.style.display = showBar ? "grid" : "none";
+
+  if (!showBar) return;
+
+  dom.recipeGenreBar.innerHTML = RECIPE_GENRE_OPTIONS.map((genre) => {
+    const active = appState.currentRecipeGenre === genre.key;
+    return `
+      <button
+        type="button"
+        class="btn ${active ? "btn-primary" : "btn-secondary"}"
+        data-recipe-genre="${escapeAttr(genre.key)}"
+        style="height:36px; width:100%;"
+      >
+        ${escapeHtml(genre.label)}
+      </button>
+    `;
+  }).join("");
+}
 
 function buildGuidedPantryModal() {
   const modal = document.createElement("div");
@@ -785,7 +638,6 @@ function renderGuidedPantryModal() {
   const state = appState._guidedPantry;
   const category = getGuidedCategory();
   const item = getGuidedItem();
-  const variant = getGuidedVariant();
 
   guidedPantryDom.backBtn.style.display = state.step === "category" ? "none" : "inline-flex";
 
@@ -1108,9 +960,35 @@ function computeReadiness(recipe) {
   return Math.round((have / total) * 100);
 }
 
+function getFilteredRecipesForGrid() {
+  const baseRecipes = selectRecipesForGrid(appState);
+
+  if (appState.currentRecipeTab !== "ai-recipes") {
+    return baseRecipes;
+  }
+
+  return baseRecipes.filter((recipe) =>
+    recipeMatchesGenre(recipe, appState.currentRecipeGenre || "all")
+  );
+}
+
 function renderRecipesSelectionGrid() {
+  renderRecipeGenreBar();
+
   if (!dom.recipesGrid) return;
-  dom.recipesGrid.innerHTML = renderSelectionGrid(selectRecipesForGrid(appState));
+
+  const filteredRecipes = getFilteredRecipesForGrid();
+  dom.recipesGrid.innerHTML = renderSelectionGrid(filteredRecipes);
+
+  if (!filteredRecipes.length) {
+    dom.recipesGrid.innerHTML = `
+      <div class="empty-state" style="grid-column:1/-1;">
+        <div class="empty-icon">🍽️</div>
+        <div class="empty-title">No recipes in this section</div>
+        <div class="empty-subtitle">Try a different recipe filter.</div>
+      </div>
+    `;
+  }
 }
 
 function renderMealSlot(dayKey, slotKey) {
@@ -1123,7 +1001,9 @@ function renderMealSlot(dayKey, slotKey) {
 
   const isPendingPlacement = !!appState._pendingAddRecipeId;
   const slotLabel = getMealSlotLabel(slotKey);
-  const openClass = isSlotOpen(dayKey, slotKey) ? " box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);" : "";
+  const openClass = isSlotOpen(dayKey, slotKey)
+    ? " box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);"
+    : "";
 
   return `
     <button
@@ -1716,6 +1596,10 @@ function setActivePage(pageKey) {
   if (pageKey === "shopping") {
     renderShoppingPage();
   }
+
+  if (pageKey === "recipes") {
+    renderRecipesSelectionGrid();
+  }
 }
 
 function bindEvents() {
@@ -1807,11 +1691,22 @@ function bindEvents() {
 
       const tabKey = tab.dataset.tab || "ai-recipes";
       appState.currentRecipeTab = tabKey;
+      appState.currentRecipeGenre = "all";
 
       $("#aiRecipesTab")?.classList.toggle("active", tabKey === "ai-recipes");
       $("#myRecipesTab")?.classList.toggle("active", tabKey === "my-recipes");
       $("#favoritesTab")?.classList.toggle("active", tabKey === "favorites");
+
+      renderRecipesSelectionGrid();
     });
+  });
+
+  document.addEventListener("click", (e) => {
+    const genreBtn = e.target.closest("[data-recipe-genre]");
+    if (!genreBtn) return;
+
+    appState.currentRecipeGenre = genreBtn.dataset.recipeGenre || "all";
+    renderRecipesSelectionGrid();
   });
 
   dom.recipesGrid?.addEventListener("click", (e) => {
@@ -1951,23 +1846,13 @@ function bindEvents() {
     const slotState = getMealSlotState(day, mealSlot);
 
     if (appState._pendingAddRecipeId) {
-      const wasFilled = !!slotState.recipeId;
-      const shouldPreservePortions = wasFilled && slotState.portions > 0;
-
       slotState.recipeId = appState._pendingAddRecipeId;
-      slotState.portions = shouldPreservePortions
-        ? slotState.portions
-        : Math.max(MIN_PORTIONS, Math.min(MAX_PORTIONS, Number(appState._pendingAddPortions || DEFAULT_PORTIONS)));
-
+      slotState.portions = appState._pendingAddPortions || DEFAULT_PORTIONS;
+      const addedRecipe = getRecipeById(slotState.recipeId);
       appState._pendingAddRecipeId = null;
       appState._pendingAddPortions = DEFAULT_PORTIONS;
-
-      if (isSlotOpen(day, mealSlot)) {
-        openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
-      }
-
+      toast(`${addedRecipe?.name || "Meal"} added to ${getMealSlotLabel(mealSlot)}.`, "✅");
       renderWeekCalendar();
-      toast(wasFilled ? `${getMealSlotLabel(mealSlot)} replaced.` : `${getMealSlotLabel(mealSlot)} added.`, "✅");
       return;
     }
 
@@ -1976,65 +1861,174 @@ function bindEvents() {
       return;
     }
 
-    toast("Add a recipe from Recipes tab.", "ℹ️");
+    setActivePage("recipes");
+    toast(`Pick a recipe for ${getMealSlotLabel(mealSlot)}.`, "📖");
   });
 
-  dom.startScanBtn?.addEventListener("click", () => {
-    const emojis = ["🍎", "🥛", "🥦", "🍗", "🧀", "🍞"];
-    const pick = emojis[Math.floor(Math.random() * emojis.length)];
-    if (dom.scannedItemEmoji) dom.scannedItemEmoji.textContent = pick;
-
-    const nameMap = {
-      "🍎": "Apple",
-      "🥛": "Milk",
-      "🥦": "Broccoli",
-      "🍗": "Chicken",
-      "🧀": "Cheese",
-      "🍞": "Bread",
-    };
-    const name = nameMap[pick] || "Item";
+  dom.startScanBtn?.addEventListener("click", async () => {
     const row = {
       user_id: appState.userId,
-      name,
-      category: guessCategory(name),
+      name: "Scanned Item",
+      category: "all",
       quantity: "1",
-      unit: "",
-      emoji: pick,
+      unit: "whole",
+      emoji: "📦",
       status: "fresh",
       expiry_date: null,
     };
 
-    addPantryItem(row);
+    await addPantryItem(row);
   });
 
-  dom.uploadPhotoBtn?.addEventListener("click", () => {
-    toast("Photo upload wiring next.", "🧩");
-  });
+  dom.uploadPhotoBtn?.addEventListener("click", async () => {
+    const row = {
+      user_id: appState.userId,
+      name: "Uploaded Item",
+      category: "all",
+      quantity: "1",
+      unit: "whole",
+      emoji: "📦",
+      status: "fresh",
+      expiry_date: null,
+    };
 
-  document.addEventListener("click", (e) => {
-    const actionCard = e.target.closest("[data-action]");
-    if (!actionCard) return;
-    const action = actionCard.dataset.action;
-
-    if (action === "scan") setActivePage("scanner");
-    if (action === "pantry-staples") openStaplesModal();
-    if (action === "recipes") setActivePage("recipes");
-    if (action === "shopping") setActivePage("shopping");
+    await addPantryItem(row);
   });
 }
 
 function guessCategory(name) {
   const n = normalizeKey(name);
-  if (n.includes("milk") || n.includes("cheese") || n.includes("butter") || n.includes("cream")) return "dairy";
-  if (n.includes("chicken") || n.includes("beef") || n.includes("salmon") || n.includes("pork") || n.includes("bacon")) return "meat";
-  if (n.includes("apple") || n.includes("broccoli") || n.includes("onion") || n.includes("lemon") || n.includes("garlic")) return "produce";
-  if (n.includes("bread") || n.includes("pasta") || n.includes("rice") || n.includes("flour") || n.includes("sugar")) return "grains";
-  if (n.includes("salt") || n.includes("pepper") || n.includes("powder") || n.includes("oil")) return "spices";
-  if (n.includes("beans") || n.includes("tomatoes") || n.includes("salsa")) return "canned";
+
+  if (
+    n.includes("milk") ||
+    n.includes("cheese") ||
+    n.includes("butter") ||
+    n.includes("cream") ||
+    n.includes("yogurt") ||
+    n.includes("egg")
+  ) {
+    return "dairy";
+  }
+
+  if (
+    n.includes("chicken") ||
+    n.includes("beef") ||
+    n.includes("salmon") ||
+    n.includes("pork") ||
+    n.includes("bacon") ||
+    n.includes("sausage") ||
+    n.includes("shrimp") ||
+    n.includes("turkey") ||
+    n.includes("ham")
+  ) {
+    return "meat";
+  }
+
+  if (
+    n.includes("apple") ||
+    n.includes("avocado") ||
+    n.includes("broccoli") ||
+    n.includes("onion") ||
+    n.includes("lemon") ||
+    n.includes("lime") ||
+    n.includes("garlic") ||
+    n.includes("lettuce") ||
+    n.includes("spinach") ||
+    n.includes("tomato") ||
+    n.includes("potato") ||
+    n.includes("carrot") ||
+    n.includes("pepper") ||
+    n.includes("jalapeno") ||
+    n.includes("cilantro") ||
+    n.includes("zucchini") ||
+    n.includes("mushroom") ||
+    n.includes("cucumber")
+  ) {
+    return "produce";
+  }
+
+  if (
+    n.includes("bread") ||
+    n.includes("bun") ||
+    n.includes("bagel") ||
+    n.includes("muffin")
+  ) {
+    return "bakery";
+  }
+
+  if (
+    n.includes("pasta") ||
+    n.includes("rice") ||
+    n.includes("flour") ||
+    n.includes("sugar") ||
+    n.includes("oats") ||
+    n.includes("quinoa") ||
+    n.includes("spaghetti") ||
+    n.includes("penne") ||
+    n.includes("macaroni") ||
+    n.includes("noodle")
+  ) {
+    return "grains";
+  }
+
+  if (
+    n.includes("salt") ||
+    n.includes("pepper") ||
+    n.includes("powder") ||
+    n.includes("seasoning") ||
+    n.includes("paprika") ||
+    n.includes("cumin") ||
+    n.includes("oil") ||
+    n.includes("vinegar")
+  ) {
+    return "spices";
+  }
+
+  if (
+    n.includes("beans") ||
+    n.includes("tomatoes") ||
+    n.includes("tomato sauce") ||
+    n.includes("tomato paste") ||
+    n.includes("broth") ||
+    n.includes("salsa") ||
+    n.includes("corn") ||
+    n.includes("peas") ||
+    n.includes("pickles") ||
+    n.includes("olives") ||
+    n.includes("peanut butter") ||
+    n.includes("jelly")
+  ) {
+    return "canned";
+  }
+
+  if (
+    n.includes("ketchup") ||
+    n.includes("mustard") ||
+    n.includes("mayo") ||
+    n.includes("mayonnaise") ||
+    n.includes("bbq") ||
+    n.includes("ranch") ||
+    n.includes("dressing") ||
+    n.includes("soy sauce") ||
+    n.includes("teriyaki") ||
+    n.includes("hot sauce") ||
+    n.includes("worcestershire")
+  ) {
+    return "condiments";
+  }
+
+  if (n.includes("frozen")) {
+    return "frozen";
+  }
+
   return "all";
 }
 
 async function addPantryItem(row) {
+  if (!row.category || row.category === "all") {
+    row.category = guessCategory(row.name);
+  }
+
   if (await ensureSupabase()) {
     const sb = supabaseClient;
     const { error } = await sb.from("pantry_items").insert([row]);
@@ -2075,6 +2069,7 @@ function normalizeMealPlanShape() {
 function init() {
   buildGuidedPantryModal();
   bindGuidedPantryEvents();
+  ensureRecipeGenreBar();
 
   const seen = localStorage.getItem("darsnest_seen_welcome");
   if (!seen) {
