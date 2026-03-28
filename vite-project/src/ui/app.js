@@ -16,6 +16,7 @@ import { recipeSeed } from "../data/recipeSeed.js";
    DarsNest AI Kitchen OS — app.js
    Guided Pantry Add v1 + Shopping page wiring
    Recipes genre filter row added under AI Recipes
+   Home quick actions + View All wired
    ========================================================= */
 
 const SUPABASE_URL = config.supabaseUrl;
@@ -51,6 +52,7 @@ const RECIPE_GENRE_OPTIONS = [
   { key: "seafood", label: "Seafood" },
   { key: "sauces", label: "Sauces" },
 ];
+
 const SAUCE_RECIPE_IDS = new Set([
   "r_bechamel_sauce",
   "r_veloute_sauce",
@@ -71,6 +73,7 @@ const SAUCE_RECIPE_IDS = new Set([
   "r_honey_mustard",
   "r_garlic_aioli",
 ]);
+
 const DEFAULT_PORTIONS = 2;
 const MIN_PORTIONS = 1;
 const MAX_PORTIONS = 12;
@@ -94,6 +97,101 @@ function getDeviceUserId() {
 function money(n) {
   const v = Number(n || 0);
   return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+function formatShoppingQuantity(value) {
+  if (value === null || value === undefined || value === "") return "0";
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed || "0";
+  }
+
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "0";
+
+  if (Number.isInteger(num)) return String(num);
+
+  return String(Math.round((num + Number.EPSILON) * 100) / 100);
+}
+
+function getShoppingItems(shopping) {
+  if (Array.isArray(shopping?.items)) return shopping.items;
+  if (Array.isArray(shopping?.list)) return shopping.list;
+  return [];
+}
+
+function getShoppingHasMeals(shopping) {
+  if (typeof shopping?.hasMeals === "boolean") return shopping.hasMeals;
+  if (typeof shopping?.hasPlannedMeals === "boolean") return shopping.hasPlannedMeals;
+  return false;
+}
+
+function getShoppingCartTotal(shopping) {
+  if (Number.isFinite(Number(shopping?.cartTotal))) return Number(shopping.cartTotal);
+  if (Number.isFinite(Number(shopping?.totalPurchasedCost))) return Number(shopping.totalPurchasedCost);
+  return 0;
+}
+
+function normalizeShoppingItem(rawItem) {
+  const label = String(
+    rawItem?.label ??
+      rawItem?.name ??
+      rawItem?.ingredient_label ??
+      rawItem?.ingredient_id ??
+      "Item"
+  );
+
+  const unit = String(
+    rawItem?.unit ??
+      rawItem?.base_unit ??
+      rawItem?.display_unit ??
+      ""
+  ).trim();
+
+  const needQtyText = String(
+    rawItem?.needQtyText ??
+      rawItem?.net_required_text ??
+      formatShoppingQuantity(rawItem?.net_required_base)
+  );
+
+  const packages = Number(
+    rawItem?.packages ??
+      rawItem?.packages_to_buy ??
+      0
+  );
+
+  const cost = Number(
+    rawItem?.cost ??
+      rawItem?.purchased_cost ??
+      0
+  );
+
+  const pantryNote = String(
+    rawItem?.pantryNote ??
+      rawItem?.pantry_note ??
+      rawItem?.sourceNote ??
+      rawItem?.source_note ??
+      ""
+  ).trim();
+
+  return {
+    ingredientId: String(rawItem?.ingredientId ?? rawItem?.ingredient_id ?? ""),
+    label,
+    unit,
+    needQtyText,
+    packages: Number.isFinite(packages) ? packages : 0,
+    cost: Number.isFinite(cost) ? cost : 0,
+    pantryNote,
+  };
+}
+
+function getNormalizedShoppingView(shopping) {
+  return {
+    hasMeals: getShoppingHasMeals(shopping),
+    cartTotal: getShoppingCartTotal(shopping),
+    items: getShoppingItems(shopping).map(normalizeShoppingItem),
+  };
 }
 
 function debounce(fn, ms = 150) {
@@ -435,8 +533,8 @@ function inferRecipeGenres(recipe) {
   }
 
   if (SAUCE_RECIPE_IDS.has(recipe.id)) {
-  genres.add("sauces");
-}
+    genres.add("sauces");
+  }
 
   if (!genres.size) {
     genres.add("american");
@@ -953,6 +1051,18 @@ function renderPantry() {
       return `
         <div class="pantry-card" data-id="${escapeAttr(i.id || "")}">
           <div class="item-status ${statusClass}"></div>
+
+          <button
+            class="pantry-delete-btn"
+            type="button"
+            data-delete-pantry-item="1"
+            data-id="${escapeAttr(i.id || "")}"
+            aria-label="Delete ${escapeAttr(i.name || "pantry item")}"
+            title="Delete item"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+
           <div class="item-image">${escapeHtml(i.emoji || "📦")}</div>
           <div class="item-name">${escapeHtml(i.name)}</div>
           <div class="item-details">${escapeHtml((i.quantity ?? "") + (i.unit ? " " + i.unit : ""))}</div>
@@ -1104,11 +1214,11 @@ function renderWeeklyTotals() {
 }
 
 function renderShoppingPage() {
-  const shopping = selectShoppingList(appState);
+  const shopping = getNormalizedShoppingView(selectShoppingList(appState));
   const totals = selectWeeklyTotals(appState);
 
-  if (dom.totalItems) dom.totalItems.textContent = String(shopping.items?.length ?? 0);
-  if (dom.estimatedCost) dom.estimatedCost.textContent = money(shopping.cartTotal ?? 0);
+  if (dom.totalItems) dom.totalItems.textContent = String(shopping.items.length);
+  if (dom.estimatedCost) dom.estimatedCost.textContent = money(shopping.cartTotal);
   if (dom.estimatedSavings) dom.estimatedSavings.textContent = money(totals.savingsTotal ?? 0);
 
   if (!dom.shoppingList) return;
@@ -1138,6 +1248,11 @@ function renderShoppingPage() {
   dom.shoppingList.innerHTML = shopping.items
     .map((item) => {
       const needText = item.unit ? `${item.needQtyText} ${item.unit}` : item.needQtyText;
+      const packageCount = Math.max(0, Number(item.packages || 0));
+      const packageLabel = `${packageCount} package${packageCount === 1 ? "" : "s"}`;
+      const noteHtml = item.pantryNote
+        ? `<div class="shopping-source">${escapeHtml(item.pantryNote)}</div>`
+        : "";
 
       return `
         <div class="shopping-item" style="justify-content:space-between;">
@@ -1146,8 +1261,9 @@ function renderShoppingPage() {
             <div class="shopping-info">
               <div class="shopping-name">${escapeHtml(item.label)}</div>
               <div class="shopping-details">
-                Need ${escapeHtml(needText)} • ${escapeHtml(String(item.packages))} package${item.packages === 1 ? "" : "s"}
+                Need ${escapeHtml(needText)} • ${escapeHtml(packageLabel)}
               </div>
+              ${noteHtml}
             </div>
           </div>
           <div style="font-weight:900;">${escapeHtml(money(item.cost))}</div>
@@ -1313,6 +1429,38 @@ function localInsertPantry(rows) {
   localSavePantry([...all, ...withIds]);
 }
 
+function localDeletePantryItem(itemId, userId) {
+  const all = localLoadPantry();
+  const next = all.filter((item) => !(item.id === itemId && item.user_id === userId));
+  localSavePantry(next);
+}
+
+async function deletePantryItem(itemId) {
+  if (!itemId) return;
+
+  if (await ensureSupabase()) {
+    const sb = supabaseClient;
+    const { error } = await sb
+      .from("pantry_items")
+      .delete()
+      .eq("id", itemId)
+      .eq("user_id", appState.userId);
+
+    if (error) {
+      console.error(error);
+      toast("Supabase delete failed. Using local.", "⚠️");
+      localDeletePantryItem(itemId, appState.userId);
+    } else {
+      toast("Item deleted from pantry.", "🗑️");
+    }
+  } else {
+    localDeletePantryItem(itemId, appState.userId);
+    toast("Item deleted (local).", "🗑️");
+  }
+
+  await loadPantryItems();
+}
+
 async function loadPantryItems() {
   if (await ensureSupabase()) {
     const sb = supabaseClient;
@@ -1342,7 +1490,7 @@ async function loadPantryItems() {
 }
 
 function renderWeeklyPooledCartSummary() {
-  const shopping = selectShoppingList(appState);
+  const shopping = getNormalizedShoppingView(selectShoppingList(appState));
 
   if (!shopping.hasMeals) {
     return `
@@ -1379,7 +1527,7 @@ function renderWeeklyPooledCartSummary() {
     <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
         <div style="font-size:12px; color: var(--muted); font-weight:800;">Weekly Cart Total</div>
-        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(shopping.cartTotal ?? 0))}</div>
+        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(shopping.cartTotal))}</div>
       </div>
 
       <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; padding:0 0 6px; font-size:11px; color: var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.04em;">
@@ -1631,6 +1779,51 @@ function bindEvents() {
     });
   });
 
+  document.addEventListener("click", (e) => {
+    const actionCard = e.target.closest(".action-card");
+    if (!actionCard) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const titleEl = actionCard.querySelector(".action-title");
+    const label = normalizeKey(titleEl?.textContent || "");
+
+    if (label.includes("smart scan")) {
+      setActivePage("scanner");
+      return;
+    }
+
+    if (label.includes("pantry staples")) {
+      openStaplesModal();
+      return;
+    }
+
+    if (label.includes("recipes")) {
+      setActivePage("recipes");
+      return;
+    }
+
+    if (label.includes("shopping")) {
+      setActivePage("shopping");
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    const viewAllBtn = e.target.closest(".view-all-btn");
+    if (!viewAllBtn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const section = viewAllBtn.closest(".section-header");
+    const title = normalizeKey(section?.querySelector(".section-title")?.textContent || "");
+
+    if (title.includes("recent items")) {
+      setActivePage("pantry");
+    }
+  });
+
   dom.backdrop?.addEventListener("click", () => {
     toggleAddMenu(false);
     closeStaplesModal();
@@ -1652,13 +1845,29 @@ function bindEvents() {
     }, 120)
   );
 
-  dom.pantryCats.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      dom.pantryCats.forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
-      appState.pantryCategory = normalizeKey(tab.dataset.category || "all");
-      renderPantry();
-    });
+  document.addEventListener("click", (e) => {
+    const pantryTab = e.target.closest(".category-tab");
+    if (!pantryTab) return;
+
+    dom.pantryCats = $$(".category-tab");
+    dom.pantryCats.forEach((t) => t.classList.remove("active"));
+    pantryTab.classList.add("active");
+
+    appState.pantryCategory = normalizeKey(pantryTab.dataset.category || "all");
+    renderPantry();
+  });
+
+  dom.pantryGrid?.addEventListener("click", async (e) => {
+    const deleteBtn = e.target.closest("[data-delete-pantry-item]");
+    if (!deleteBtn) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    const itemId = deleteBtn.dataset.id;
+    if (!itemId) return;
+
+    await deletePantryItem(itemId);
   });
 
   dom.addItemBtn?.addEventListener("click", (e) => {
@@ -1703,21 +1912,23 @@ function bindEvents() {
     renderStaplesGrid();
   });
 
-  dom.recipeTabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      dom.recipeTabs.forEach((t) => t.classList.remove("active"));
-      tab.classList.add("active");
+  document.addEventListener("click", (e) => {
+    const recipeTab = e.target.closest(".recipes-tab");
+    if (!recipeTab) return;
 
-      const tabKey = tab.dataset.tab || "ai-recipes";
-      appState.currentRecipeTab = tabKey;
-      appState.currentRecipeGenre = "all";
+    dom.recipeTabs = $$(".recipes-tab");
+    dom.recipeTabs.forEach((t) => t.classList.remove("active"));
+    recipeTab.classList.add("active");
 
-      $("#aiRecipesTab")?.classList.toggle("active", tabKey === "ai-recipes");
-      $("#myRecipesTab")?.classList.toggle("active", tabKey === "my-recipes");
-      $("#favoritesTab")?.classList.toggle("active", tabKey === "favorites");
+    const tabKey = recipeTab.dataset.tab || "ai-recipes";
+    appState.currentRecipeTab = tabKey;
+    appState.currentRecipeGenre = "all";
 
-      renderRecipesSelectionGrid();
-    });
+    $("#aiRecipesTab")?.classList.toggle("active", tabKey === "ai-recipes");
+    $("#myRecipesTab")?.classList.toggle("active", tabKey === "my-recipes");
+    $("#favoritesTab")?.classList.toggle("active", tabKey === "favorites");
+
+    renderRecipesSelectionGrid();
   });
 
   document.addEventListener("click", (e) => {
@@ -2053,68 +2264,90 @@ async function addPantryItem(row) {
     const { error } = await sb.from("pantry_items").insert([row]);
     if (error) {
       console.error(error);
-      toast("Supabase insert failed. Using local.", "⚠️");
+      toast("Supabase add failed. Using local.", "⚠️");
       localInsertPantry([row]);
     } else {
-      toast("Item added to pantry.", "✅");
+      toast(`${row.name} added.`, "✅");
     }
   } else {
     localInsertPantry([row]);
-    toast("Item added (local).", "✅");
+    toast(`${row.name} added (local).`, "✅");
   }
 
   await loadPantryItems();
 }
 
-function escapeHtml(str) {
-  return String(str ?? "")
+function renderMyRecipesPlaceholder() {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">📘</div>
+      <div class="empty-title">My Recipes coming soon</div>
+      <div class="empty-subtitle">Your custom recipes will appear here.</div>
+    </div>
+  `;
+}
+
+function renderFavoritesPlaceholder() {
+  return `
+    <div class="empty-state">
+      <div class="empty-icon">⭐</div>
+      <div class="empty-title">No favorites yet</div>
+      <div class="empty-subtitle">Save meals here once favorites are wired.</div>
+    </div>
+  `;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
     .replaceAll("&", "&amp;")
     .replaceAll("<", "&lt;")
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+    .replaceAll("'", "&#39;");
 }
 
-function escapeAttr(str) {
-  return escapeHtml(str).replaceAll("`", "&#096;");
+function escapeAttr(value) {
+  return escapeHtml(value);
 }
 
-function normalizeMealPlanShape() {
-  for (const day of WEEK_DAYS) {
-    ensureDayPlan(day.key);
-  }
-}
+async function bootstrap() {
+  appState.userId = getDeviceUserId();
+  appState.pantryItems = [];
+  appState.selectedStaples = new Set();
+  appState.currentPage = appState.currentPage || "home";
+  appState.currentRecipeTab = appState.currentRecipeTab || "ai-recipes";
+  appState.currentRecipeGenre = appState.currentRecipeGenre || "all";
+  appState.pantrySearch = appState.pantrySearch || "";
+  appState.pantryCategory = appState.pantryCategory || "all";
+  appState.ingredientAvailabilityOverrides = appState.ingredientAvailabilityOverrides || {};
+  appState.mealPlan = appState.mealPlan || {};
+  appState._previewRecipePortionsById = appState._previewRecipePortionsById || {};
+  appState._pendingAddRecipeId = null;
+  appState._pendingAddPortions = DEFAULT_PORTIONS;
+  clearOpenRecipeTracking();
 
-function init() {
   buildGuidedPantryModal();
   bindGuidedPantryEvents();
-  ensureRecipeGenreBar();
-
-  const seen = localStorage.getItem("darsnest_seen_welcome");
-  if (!seen) {
-    localStorage.setItem("darsnest_seen_welcome", "1");
-    setTimeout(openWelcomeModal, 250);
-  }
-
-  appState.userId = getDeviceUserId();
-  normalizeMealPlanShape();
-
   bindEvents();
-  setActivePage("home");
+  setActivePage(appState.currentPage);
 
+  $("#myRecipesTab") && ($("#myRecipesTab").innerHTML = renderMyRecipesPlaceholder());
+  $("#favoritesTab") && ($("#favoritesTab").innerHTML = renderFavoritesPlaceholder());
+
+  renderHome();
+  renderPantry();
+  renderStaplesGrid();
   renderRecipesSelectionGrid();
   renderWeekCalendar();
   renderShoppingPage();
 
-  loadPantryItems().catch((err) => {
-    console.error(err);
-    toast("Load failed. Check console.", "⚠️");
-  });
+  await loadPantryItems();
 
-  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-    console.warn("Supabase not configured. Running in LOCAL mode.");
-    toast("Running in local mode (add Supabase keys in app.js).", "ℹ️");
+  const shouldShowWelcome = !localStorage.getItem("darsnest_welcome_seen");
+  if (shouldShowWelcome) {
+    localStorage.setItem("darsnest_welcome_seen", "1");
+    openWelcomeModal();
   }
 }
 
-document.addEventListener("DOMContentLoaded", init);
+bootstrap();

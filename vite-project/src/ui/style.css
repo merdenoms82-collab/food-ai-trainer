@@ -444,6 +444,33 @@ i{ pointer-events:none; }
   position:relative;
   min-height: 120px;
 }
+.pantry-delete-btn{
+  position: absolute;
+  top: 10px;
+  right: 24px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r);
+  border: 1px solid rgba(239,68,68,.28);
+  background: var(--surface-2);
+  color: rgba(239,68,68,.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform var(--t), background var(--t), border-color var(--t);
+}
+
+.pantry-delete-btn:active{
+  transform: scale(.98);
+  background: rgba(239,68,68,.08);
+  border-color: rgba(239,68,68,.42);
+}
+
+.pantry-delete-btn i{
+  pointer-events: none;
+  font-size: 12px;
+}
 .item-image{
   width: 44px;
   height: 44px;
@@ -969,8 +996,59 @@ i{ pointer-events:none; }
   background: var(--surface-2);
   border: 1px solid rgba(255,255,255,.08);
   border-radius: var(--r);
-  padding: 12px;
-  position:relative;
+  padding: 14px 12px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--text);
+  text-align: left;
+  min-height: 108px;
+}
+
+.staple-card.selected{
+  border-color: rgba(34,197,94,.35);
+}
+
+.staple-emoji{
+  font-size: 22px;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.staple-name{
+  font-weight: 900;
+  font-size: 14px;
+  line-height: 1.3;
+  color: var(--text);
+}
+
+.staple-details{
+  margin-top: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.staple-checkmark{
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--r);
+  background: var(--save);
+  color: #0B0F1A;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  opacity: 0;
+}
+
+.staple-card.selected .staple-checkmark{
+  opacity: 1;
 }
 .staple-card.selected{
   border-color: rgba(34,197,94,.35);
@@ -1060,16 +1138,29 @@ i{ pointer-events:none; }
 /* ===== OPTIONAL HELPERS (non-invasive) ===== */
 /* Use these if your JS injects generic “empty state” blocks */
 .empty-state{
+  width:100%;
+  min-height:140px;
   background: var(--surface);
-  border: 1px solid var(--divider);
+  border: 1px dashed rgba(255,255,255,.08);
   border-radius: var(--r);
-  padding: 18px;
-  color: var(--muted);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
   text-align:center;
+  padding: 18px;
 }
-.empty-icon{ font-size: 28px; margin-bottom: 8px; opacity:.9; }
-.empty-title{ color: var(--text); font-weight: 900; margin-bottom: 6px; }
-.empty-subtitle{ color: var(--muted); font-size: 13px; }
-
-/* IMPORTANT: keep green reserved for savings numbers only.
-   Do NOT apply --save to random buttons, tabs, badges, etc. */
+.empty-icon{
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+.empty-title{
+  font-size: 14px;
+  font-weight: 900;
+}
+.empty-subtitle{
+  margin-top: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
