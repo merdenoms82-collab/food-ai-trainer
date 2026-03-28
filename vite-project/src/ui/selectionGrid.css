@@ -18,14 +18,14 @@
 /* Page section wrapper */
 .dn-selection{
   background: var(--dn-bg);
-  padding: 24px;            /* outer padding locked */
+  padding: 24px;
 }
 
 /* 2-column grid locked */
 .dn-selection__grid{
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;                /* gap locked */
+  gap: 16px;
 }
 
 /* Card */
@@ -33,17 +33,18 @@
   background: var(--dn-surface);
   border: 1px solid var(--dn-divider);
   border-radius: var(--dn-r);
-  overflow: hidden;         /* keeps image sharp */
-  aspect-ratio: 4 / 5;      /* ratio locked */
-  display: flex;
-  flex-direction: column;
+  overflow: hidden;
+  aspect-ratio: 4 / 5;
+  display: grid;
+  grid-template-rows: 44% 56%;
+  min-height: 320px;
 }
 
-/* Image (top 50% of card) */
+/* Image area */
 .dn-card__imgWrap{
-  flex: 1 1 50%;
-  min-height: 0;
   background: var(--dn-surface-2);
+  min-height: 0;
+  overflow: hidden;
 }
 
 .dn-card__img{
@@ -55,21 +56,22 @@
 
 /* Body */
 .dn-card__body{
-  flex: 1 1 50%;
   min-height: 0;
   padding: 12px;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: auto auto auto auto 1fr auto;
   gap: 8px;
+  align-content: start;
 }
 
 /* Recipe Name */
 .dn-card__title{
   margin: 0;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 800;
   color: var(--dn-text);
   line-height: 1.2;
+  min-height: 36px;
 
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -122,9 +124,9 @@
   color: var(--dn-text);
 }
 
-/* Add to Week button (neutral — no green/red) */
+/* Add to Week button */
 .dn-card__btn{
-  margin-top: auto;          /* pins button to bottom of body */
+  margin-top: auto;
   height: 40px;
   border-radius: var(--dn-r);
   border: 1px solid var(--dn-divider);
@@ -133,16 +135,24 @@
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
+  width: 100%;
 }
 
-/* Mobile-first: keep 2-column, tighten padding slightly */
+/* Mobile-first: keep 2-column */
 @media (max-width: 480px){
   .dn-selection{
-    padding: 24px; /* stays locked */
+    padding: 24px;
   }
+
+  .dn-card{
+    min-height: 300px;
+  }
+
   .dn-card__title{
     font-size: 14px;
+    min-height: 34px;
   }
+
   .dn-card__savings{
     font-size: 17px;
   }

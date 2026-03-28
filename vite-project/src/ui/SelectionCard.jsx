@@ -11,11 +11,34 @@ function getRecipeId(recipe) {
 }
 
 function getRecipeName(recipe) {
-  return String(recipe?.name ?? "").trim();
+  return String(recipe?.name ?? recipe?.title ?? "Untitled Recipe").trim();
 }
 
 function getImageUrl(recipe) {
-  return String(recipe?.image_url ?? "").trim();
+  return String(recipe?.image_url ?? recipe?.image ?? "").trim();
+}
+
+function getRestaurantPrice(recipe) {
+  return Number(recipe?.restaurant_price ?? recipe?.restaurantPrice ?? 0);
+}
+
+function getHomeCost(recipe) {
+  return Number(recipe?.home_cost ?? recipe?.homeCost ?? 0);
+}
+
+function getSavings(recipe) {
+  const explicitSavings = Number(recipe?.savings);
+  if (Number.isFinite(explicitSavings)) return explicitSavings;
+
+  const restaurant = getRestaurantPrice(recipe);
+  const home = getHomeCost(recipe);
+  return restaurant - home;
+}
+
+function getReadiness(recipe) {
+  const explicitReadiness = Number(recipe?.readiness_pct);
+  if (Number.isFinite(explicitReadiness)) return explicitReadiness;
+  return 0;
 }
 
 function getFallbackMonogram(name) {
@@ -33,6 +56,11 @@ export default function SelectionCard({ recipe }) {
   const recipeId = getRecipeId(recipe);
   const recipeName = getRecipeName(recipe);
   const imageUrl = getImageUrl(recipe);
+  const restaurantPrice = getRestaurantPrice(recipe);
+  const homeCost = getHomeCost(recipe);
+  const savings = getSavings(recipe);
+  const readiness = getReadiness(recipe);
+
   const showFallback = !imageUrl;
   const fallbackMonogram = getFallbackMonogram(recipeName);
 
@@ -83,7 +111,7 @@ export default function SelectionCard({ recipe }) {
           <img
             className="dn-card__img"
             src={imageUrl}
-            alt=""
+            alt={recipeName}
             loading="lazy"
             decoding="async"
           />
@@ -103,21 +131,21 @@ export default function SelectionCard({ recipe }) {
         <div className="dn-card__row dn-card__row--restaurant">
           <span className="dn-card__label">Restaurant</span>
           <span className="dn-card__value dn-card__value--restaurant">
-            {money(recipe.restaurant_price)}
+            {money(restaurantPrice)}
           </span>
         </div>
 
         <div className="dn-card__row">
           <span className="dn-card__label">Home</span>
-          <span className="dn-card__value">{money(recipe.home_cost)}</span>
+          <span className="dn-card__value">{money(homeCost)}</span>
         </div>
 
         <div className="dn-card__savings" aria-label="Savings">
-          YOU SAVE <span className="dn-card__savingsNum">{money(recipe.savings)}</span>
+          YOU SAVE <span className="dn-card__savingsNum">{money(savings)}</span>
         </div>
 
         <div className="dn-card__readiness">
-          {Number(recipe.readiness_pct) || 0}% Ingredients Ready
+          {readiness}% Ingredients Ready
         </div>
 
         <button className="dn-card__btn" type="button" data-add-to-week="1">

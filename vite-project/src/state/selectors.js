@@ -680,6 +680,12 @@ function adaptPantryItemsForEngine(state) {
 function adaptRecipeForSelectionCard(recipe, state) {
   const presentation = recipePresentationById[recipe?.id] ?? {};
 
+  const presentationTitle = String(presentation.title ?? "").trim();
+  const recipeName = String(recipe?.name ?? "").trim();
+
+  const presentationImageUrl = String(presentation.image_url ?? "").trim();
+  const recipeImage = String(recipe?.image ?? "").trim();
+
   const restaurantPrice = Number(
     presentation.restaurant_price ?? recipe?.restaurantPrice ?? 0
   );
@@ -690,8 +696,8 @@ function adaptRecipeForSelectionCard(recipe, state) {
 
   return {
     id: recipe?.id ?? "",
-    name: presentation.title ?? recipe?.name ?? "",
-    image_url: presentation.image_url ?? recipe?.image ?? "",
+    name: presentationTitle || recipeName || "Untitled Recipe",
+    image_url: presentationImageUrl || recipeImage,
     restaurant_price: restaurantPrice,
     home_cost: homeCost,
     savings: computedSavings,
