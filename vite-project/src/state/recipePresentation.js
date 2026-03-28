@@ -162,7 +162,7 @@ export const recipePresentationById = {
   r_breakfast_burritos: {
     title: "Breakfast Burritos",
     image_url:
-      "https://cdn.pixabay.com/photo/2015/04/20/21/05/breakfast-732230_1280.jpg",
+      "https://images.pexels.com/photos/29333173/pexels-photo-29333173.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
     restaurant_price: 15.0,
     home_cost: 5.0,
   },
@@ -170,7 +170,7 @@ export const recipePresentationById = {
   r_bacon_eggs_toast: {
     title: "Bacon, Eggs & Toast",
     image_url:
-      "https://cdn.pixabay.com/photo/2015/04/20/21/05/breakfast-732230_1280.jpg",
+      "https://images.pexels.com/photos/29839738/pexels-photo-29839738.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
     restaurant_price: 14.0,
     home_cost: 5.0,
   },
@@ -178,7 +178,7 @@ export const recipePresentationById = {
   r_pancakes_bacon: {
     title: "Pancakes & Bacon",
     image_url:
-      "https://cdn.pixabay.com/photo/2015/04/20/21/05/breakfast-732230_1280.jpg",
+      "https://images.pexels.com/photos/6864354/pexels-photo-6864354.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
     restaurant_price: 15.0,
     home_cost: 5.0,
   },
@@ -213,5 +213,149 @@ export const recipePresentationById = {
       "https://images.pexels.com/photos/27643042/pexels-photo-27643042.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
     restaurant_price: 20.0,
     home_cost: 8.0,
+  },
+
+  r_bechamel_sauce: {
+    title: "Béchamel Sauce",
+    image_url:
+      "https://images.pexels.com/photos/8053728/pexels-photo-8053728.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 8.0,
+    home_cost: 2.5,
+  },
+
+  r_veloute_sauce: {
+    title: "Velouté Sauce",
+    image_url:
+      "https://images.pexels.com/photos/7696493/pexels-photo-7696493.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 8.0,
+    home_cost: 2.5,
+  },
+
+  r_brown_espagnole_sauce: {
+    title: "Brown Sauce (Espagnole)",
+    image_url:
+      "https://images.pexels.com/photos/8256968/pexels-photo-8256968.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 9.0,
+    home_cost: 3.0,
+  },
+
+  r_classic_tomato_sauce: {
+    title: "Classic Tomato Sauce",
+    image_url:
+      "https://images.pexels.com/photos/9685279/pexels-photo-9685279.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_hollandaise_sauce: {
+    title: "Hollandaise Sauce",
+    image_url:
+      "https://images.pexels.com/photos/35799743/pexels-photo-35799743.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 9.0,
+    home_cost: 3.0,
+  },
+
+  r_alfredo_sauce: {
+    title: "Alfredo Sauce",
+    image_url:
+      "https://images.pexels.com/photos/18976994/pexels-photo-18976994.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 9.0,
+    home_cost: 3.0,
+  },
+
+  r_marinara_sauce: {
+    title: "Marinara Sauce",
+    image_url:
+      "https://images.pexels.com/photos/8108152/pexels-photo-8108152.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_pan_sauce: {
+    title: "Quick Pan Sauce",
+    image_url:
+      "https://images.pexels.com/photos/20802709/pexels-photo-20802709.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 8.0,
+    home_cost: 2.5,
+  },
+
+  r_homestyle_gravy: {
+    title: "Homestyle Gravy",
+    image_url:
+      "https://images.pexels.com/photos/6653679/pexels-photo-6653679.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_basic_vinaigrette: {
+    title: "Basic Vinaigrette",
+    image_url:
+      "https://images.pexels.com/photos/30446181/pexels-photo-30446181.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 6.0,
+    home_cost: 1.5,
+  },
+
+  r_tartar_sauce: {
+    title: "Tartar Sauce",
+    image_url:
+      "https://images.pexels.com/photos/35799743/pexels-photo-35799743.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_ranch_dressing: {
+    title: "Ranch Dressing",
+    image_url:
+      "https://images.pexels.com/photos/8053728/pexels-photo-8053728.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_alabama_white_sauce: {
+    title: "Alabama White Sauce",
+    image_url:
+      "https://images.pexels.com/photos/7696493/pexels-photo-7696493.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 8.0,
+    home_cost: 3.0,
+  },
+
+  r_blue_cheese_dressing: {
+    title: "Blue Cheese Dressing",
+    image_url:
+      "https://images.pexels.com/photos/8256968/pexels-photo-8256968.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 8.0,
+    home_cost: 3.0,
+  },
+
+  r_chipotle_mayo: {
+    title: "Chipotle Mayo",
+    image_url:
+      "https://images.pexels.com/photos/20802709/pexels-photo-20802709.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_tzatziki_sauce: {
+    title: "Tzatziki Sauce",
+    image_url:
+      "https://images.pexels.com/photos/30446181/pexels-photo-30446181.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
+  },
+
+  r_honey_mustard: {
+    title: "Honey Mustard",
+    image_url:
+      "https://images.pexels.com/photos/6653679/pexels-photo-6653679.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 6.0,
+    home_cost: 2.0,
+  },
+
+  r_garlic_aioli: {
+    title: "Garlic Aioli",
+    image_url:
+      "https://images.pexels.com/photos/18976994/pexels-photo-18976994.jpeg?auto=compress&cs=tinysrgb&w=1200&h=800&fit=crop",
+    restaurant_price: 7.0,
+    home_cost: 2.0,
   },
 };

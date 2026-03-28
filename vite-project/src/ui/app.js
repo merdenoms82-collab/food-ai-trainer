@@ -51,7 +51,26 @@ const RECIPE_GENRE_OPTIONS = [
   { key: "seafood", label: "Seafood" },
   { key: "sauces", label: "Sauces" },
 ];
-
+const SAUCE_RECIPE_IDS = new Set([
+  "r_bechamel_sauce",
+  "r_veloute_sauce",
+  "r_brown_espagnole_sauce",
+  "r_classic_tomato_sauce",
+  "r_hollandaise_sauce",
+  "r_alfredo_sauce",
+  "r_marinara_sauce",
+  "r_pan_sauce",
+  "r_homestyle_gravy",
+  "r_basic_vinaigrette",
+  "r_tartar_sauce",
+  "r_ranch_dressing",
+  "r_alabama_white_sauce",
+  "r_blue_cheese_dressing",
+  "r_chipotle_mayo",
+  "r_tzatziki_sauce",
+  "r_honey_mustard",
+  "r_garlic_aioli",
+]);
 const DEFAULT_PORTIONS = 2;
 const MIN_PORTIONS = 1;
 const MAX_PORTIONS = 12;
@@ -415,9 +434,9 @@ function inferRecipeGenres(recipe) {
     genres.add("seafood");
   }
 
-  if (recipeHasNameOrIngredient(recipe, ["sauce", "alfredo", "marinara", "pasta sauce", "bbq sauce", "teriyaki sauce", "enchilada sauce", "gravy", "curry sauce"])) {
-    genres.add("sauces");
-  }
+  if (SAUCE_RECIPE_IDS.has(recipe.id)) {
+  genres.add("sauces");
+}
 
   if (!genres.size) {
     genres.add("american");
