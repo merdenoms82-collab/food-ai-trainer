@@ -9,26 +9,27 @@
   --dn-muted: #9CA3AF;
   --dn-divider: #273046;
 
-  --dn-savings: #22C55E;   /* ONLY for savings */
-  --dn-restaurant: #EF4444;/* ONLY for restaurant price */
+  --dn-savings: #22C55E;
+  --dn-restaurant: #EF4444;
 
   --dn-r: 4px;
 }
 
-/* Page section wrapper */
 .dn-selection{
   background: var(--dn-bg);
   padding: 24px;
 }
 
-/* 2-column grid locked */
 .dn-selection__grid{
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
-/* Card */
+.dn-selection__grid > *{
+  min-width: 0;
+}
+
 .dn-card{
   background: var(--dn-surface);
   border: 1px solid var(--dn-divider);
@@ -38,9 +39,9 @@
   display: grid;
   grid-template-rows: 44% 56%;
   min-height: 320px;
+  min-width: 0;
 }
 
-/* Image area */
 .dn-card__imgWrap{
   background: var(--dn-surface-2);
   min-height: 0;
@@ -54,17 +55,17 @@
   display: block;
 }
 
-/* Body */
 .dn-card__body{
   min-height: 0;
+  min-width: 0;
   padding: 12px;
   display: grid;
   grid-template-rows: auto auto auto auto 1fr auto;
   gap: 8px;
   align-content: start;
+  overflow: hidden;
 }
 
-/* Recipe Name */
 .dn-card__title{
   margin: 0;
   font-size: 15px;
@@ -72,59 +73,62 @@
   color: var(--dn-text);
   line-height: 1.2;
   min-height: 36px;
-
+  min-width: 0;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* Rows */
 .dn-card__row{
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
 }
 
 .dn-card__label{
   font-size: 12px;
   font-weight: 500;
   color: var(--dn-muted);
+  line-height: 1.1;
 }
 
 .dn-card__value{
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--dn-text);
+  line-height: 1.1;
+  white-space: nowrap;
 }
 
-/* Restaurant price (RED ONLY HERE) */
 .dn-card__value--restaurant{
   color: var(--dn-restaurant);
 }
 
-/* Savings (GREEN ONLY HERE) */
 .dn-card__savings{
   font-size: 18px;
   font-weight: 800;
   color: var(--dn-savings);
   letter-spacing: -0.2px;
   line-height: 1.1;
+  min-width: 0;
 }
 
 .dn-card__savingsNum{
   font-weight: 800;
+  white-space: nowrap;
 }
 
-/* Readiness text (NOT green) */
 .dn-card__readiness{
   font-size: 12px;
   font-weight: 500;
   color: var(--dn-text);
+  min-width: 0;
 }
 
-/* Add to Week button */
 .dn-card__btn{
   margin-top: auto;
   height: 40px;
@@ -136,9 +140,9 @@
   font-weight: 600;
   cursor: pointer;
   width: 100%;
+  min-width: 0;
 }
 
-/* Mobile-first: keep 2-column */
 @media (max-width: 480px){
   .dn-selection{
     padding: 24px;
