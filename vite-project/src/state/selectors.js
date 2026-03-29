@@ -198,6 +198,29 @@ function coerceSlot(slotValue) {
   };
 }
 
+function getPreviewPortionsFromState(state, recipeId) {
+  const raw = Number(state?._previewRecipePortionsById?.[recipeId]);
+  if (Number.isFinite(raw) && raw > 0) return raw;
+  return DEFAULT_PORTIONS;
+}
+
+function getIngredientAvailabilityOverride(overrides, recipeId, ingredientKey) {
+  const safeOverrides = overrides ?? {};
+  const normalizedIngredientKey = normalizeKey(ingredientKey);
+
+  const globalValue = safeOverrides[normalizedIngredientKey];
+  if (globalValue !== undefined) {
+    return !!globalValue;
+  }
+
+  const legacyValue = safeOverrides[`${recipeId}|${normalizedIngredientKey}`];
+  if (legacyValue !== undefined) {
+    return !!legacyValue;
+  }
+
+  return undefined;
+}
+
 function parseNumericQty(rawQty) {
   const normalized = normalizeKey(rawQty);
 
@@ -493,11 +516,14 @@ function computeReadinessPct(recipe, state) {
 
   for (const line of ingredients) {
     const ingredientKey = normalizeKey(line?.key ?? line?.name);
-    const overrideKey = `${recipe.id}|${ingredientKey}`;
-    const override = overrides[overrideKey];
+    const override = getIngredientAvailabilityOverride(
+      overrides,
+      recipe?.id,
+      ingredientKey
+    );
     const inPantry = pantrySet.has(ingredientKey);
 
-    const available = override === undefined ? inPantry : !!override;
+    const available = override === undefined ? inPantry : override;
     if (available) availableCount += 1;
   }
 
@@ -677,40 +703,71 @@ function adaptPantryItemsForEngine(state) {
   };
 }
 
-function adaptRecipeForSelectionCard(recipe, state) {
-  const presentation = recipePresentationById[recipe?.id] ?? {};
+function adaptIngredientAvailabilityOverridesForEngine(state, selectedRecipes) {
+  const overrides = state?.ingredientAvailabilityOverrides ?? {};
+  const effectivePantryItems = [];
+  const report = {
+    accepted_override_rows: [],
+    rejected_override_rows: [],
+  };
 
-  const presentationTitle = String(presentation.title ?? "").trim();
-  const recipeName = String(recipe?.name ?? "").trim();
+  for (const recipe of selectedRecipes) {
+    for (const line of recipe?.ingredients ?? []) {
+      const ingredientKey = normalizeKey(line?.key ?? line?.name);
+      const override = getIngredientAvailabilityOverride(
+        overrides,
+        recipe?.id,
+        ingredientKey
+      );
 
-  const presentationImageUrl = String(presentation.image_url ?? "").trim();
-  const recipeImage = String(recipe?.image ?? "").trim();
+      if (override !== true) continue;
 
-  const restaurantPrice = Number(
-    presentation.restaurant_price ?? recipe?.restaurantPrice ?? 0
-  );
-  const homeCost = Number(
-    presentation.home_cost ?? recipe?.homeCost ?? 0
-  );
-  const computedSavings = Math.max(0, restaurantPrice - homeCost);
+      const adapted = adaptRecipeLineForEngine(line);
+
+      if (adapted.accepted) {
+        effectivePantryItems.push({
+          ingredient_id: adapted.ingredient_id,
+          qty: adapted.qty,
+          unit: adapted.unit,
+        });
+
+        report.accepted_override_rows.push({
+          recipe_id: recipe.id,
+          recipe_name: recipe.name ?? null,
+          source_key: adapted.source_key,
+          ingredient_id: adapted.ingredient_id,
+          qty: adapted.qty,
+          unit: adapted.unit,
+          category: "ingredient availability override treated as pantry-covered",
+        });
+      } else {
+        report.rejected_override_rows.push({
+          recipe_id: recipe.id,
+          recipe_name: recipe.name ?? null,
+          source_key: adapted.source_key ?? ingredientKey ?? null,
+          raw_qty: adapted.raw_qty ?? null,
+          mapped_ingredient_id: adapted.mapped_ingredient_id ?? null,
+          base_unit: adapted.base_unit ?? null,
+          parsed_unit: adapted.parsed_unit ?? null,
+          reason: adapted.reason,
+          rejection_class: adapted.rejection_class ?? null,
+        });
+      }
+    }
+  }
 
   return {
-    id: recipe?.id ?? "",
-    name: presentationTitle || recipeName || "Untitled Recipe",
-    image_url: presentationImageUrl || recipeImage,
-    restaurant_price: restaurantPrice,
-    home_cost: homeCost,
-    savings: computedSavings,
-    readiness_pct: computeReadinessPct(recipe, state),
+    pantryItems: effectivePantryItems,
+    report,
   };
 }
 
-function collectSelectedRecipesFromMealPlan(state) {
+function collectSelectedMealSlotsFromMealPlan(state) {
   const mealPlan = state?.mealPlan ?? {};
   const allRecipes = state?.recipes ?? [];
-  const scaledRecipes = [];
+  const selectedMealSlots = [];
 
-  for (const dayPlan of Object.values(mealPlan)) {
+  for (const [dayKey, dayPlan] of Object.entries(mealPlan)) {
     if (!dayPlan || typeof dayPlan !== "object") continue;
 
     for (const slotKey of ["breakfast", "lunch", "dinner"]) {
@@ -720,11 +777,153 @@ function collectSelectedRecipesFromMealPlan(state) {
       const recipe = allRecipes.find((r) => r?.id === slot.recipeId);
       if (!recipe) continue;
 
-      scaledRecipes.push(scaleRecipeForEngine(recipe, slot.portions));
+      const scaledRecipe = scaleRecipeForEngine(recipe, slot.portions);
+
+      selectedMealSlots.push({
+        dayKey,
+        slotKey,
+        recipeId: recipe.id,
+        recipeName: recipe.name ?? null,
+        portions: slot.portions,
+        scaledRecipe,
+      });
     }
   }
 
-  return scaledRecipes;
+  return selectedMealSlots;
+}
+
+function collectSelectedRecipesFromMealPlan(state) {
+  return collectSelectedMealSlotsFromMealPlan(state).map(
+    (slot) => slot.scaledRecipe
+  );
+}
+
+function buildEffectiveEngineInputs(state) {
+  const selectedMealSlots = collectSelectedMealSlotsFromMealPlan(state);
+  const selectedRecipes = selectedMealSlots.map((slot) => slot.scaledRecipe);
+
+  if (!selectedRecipes.length) {
+    return {
+      selectedMealSlots,
+      selectedRecipes,
+      adaptedRecipes: {
+        recipes: [],
+        report: {
+          accepted_recipe_lines: [],
+          rejected_recipe_lines: [],
+        },
+      },
+      adaptedPantry: {
+        pantryItems: [],
+        report: {
+          accepted_pantry_rows: [],
+          rejected_pantry_rows: [],
+        },
+      },
+      adaptedOverrides: {
+        pantryItems: [],
+        report: {
+          accepted_override_rows: [],
+          rejected_override_rows: [],
+        },
+      },
+      effectivePantryItems: [],
+    };
+  }
+
+  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
+  const adaptedOverrides = adaptIngredientAvailabilityOverridesForEngine(
+    state,
+    selectedRecipes
+  );
+
+  return {
+    selectedMealSlots,
+    selectedRecipes,
+    adaptedRecipes,
+    adaptedPantry,
+    adaptedOverrides,
+    effectivePantryItems: [
+      ...adaptedPantry.pantryItems,
+      ...adaptedOverrides.pantryItems,
+    ],
+  };
+}
+
+function computeRecipePreviewPricing(recipe, state, portions = DEFAULT_PORTIONS) {
+  const previewRecipe = scaleRecipeForEngine(recipe, portions);
+  const adaptedRecipes = adaptRecipesForWeeklyEngine([previewRecipe]);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
+  const adaptedOverrides = adaptIngredientAvailabilityOverridesForEngine(state, [previewRecipe]);
+  const effectivePantryItems = [
+    ...adaptedPantry.pantryItems,
+    ...adaptedOverrides.pantryItems,
+  ];
+
+  const acceptedIngredientCount =
+    adaptedRecipes?.recipes?.[0]?.ingredients?.length ?? 0;
+
+  if (!acceptedIngredientCount) {
+    const restaurantPrice = Number(previewRecipe?.restaurantPrice ?? recipe?.restaurantPrice ?? 0);
+    const homeCost = Number(previewRecipe?.homeCost ?? recipe?.homeCost ?? 0);
+
+    return {
+      restaurantPrice,
+      homeCost,
+      savings: restaurantPrice - homeCost,
+    };
+  }
+
+  const result = computeWeeklySavingsEngineV1({
+    recipes: adaptedRecipes.recipes,
+    ingredientMaster,
+    pantryItems: effectivePantryItems,
+  });
+
+  const weekly = result?.weeklyTotals ?? {};
+  const restaurantPrice = Number(
+    weekly.restaurant_total ??
+    previewRecipe?.restaurantPrice ??
+    recipe?.restaurantPrice ??
+    0
+  );
+  const homeCost = Number(
+    weekly.home_total_out_of_pocket ??
+    previewRecipe?.homeCost ??
+    recipe?.homeCost ??
+    0
+  );
+
+  return {
+    restaurantPrice,
+    homeCost,
+    savings: restaurantPrice - homeCost,
+  };
+}
+
+function adaptRecipeForSelectionCard(recipe, state) {
+  const presentation = recipePresentationById[recipe?.id] ?? {};
+
+  const presentationTitle = String(presentation.title ?? "").trim();
+  const recipeName = String(recipe?.name ?? "").trim();
+
+  const presentationImageUrl = String(presentation.image_url ?? "").trim();
+  const recipeImage = String(recipe?.image ?? "").trim();
+
+  const previewPortions = getPreviewPortionsFromState(state, recipe?.id);
+  const previewPricing = computeRecipePreviewPricing(recipe, state, previewPortions);
+
+  return {
+    id: recipe?.id ?? "",
+    name: presentationTitle || recipeName || "Untitled Recipe",
+    image_url: presentationImageUrl || recipeImage,
+    restaurant_price: Number(previewPricing.restaurantPrice ?? 0),
+    home_cost: Number(previewPricing.homeCost ?? 0),
+    savings: Number(previewPricing.savings ?? 0),
+    readiness_pct: computeReadinessPct(recipe, state),
+  };
 }
 
 function getChefMayaStepGuidance(stepText, stepIndex) {
@@ -926,19 +1125,20 @@ export function selectRecipesForGrid(state) {
 }
 
 export function selectWeeklyTotals(state) {
-  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
+  const {
+    selectedRecipes,
+    adaptedRecipes,
+    effectivePantryItems,
+  } = buildEffectiveEngineInputs(state);
 
   if (!selectedRecipes.length) {
     return { restaurantTotal: 0, homeTotal: 0, savingsTotal: 0 };
   }
 
-  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
-  const adaptedPantry = adaptPantryItemsForEngine(state);
-
   const result = computeWeeklySavingsEngineV1({
     recipes: adaptedRecipes.recipes,
     ingredientMaster,
-    pantryItems: adaptedPantry.pantryItems,
+    pantryItems: effectivePantryItems,
   });
 
   const weekly = result?.weeklyTotals ?? {};
@@ -951,17 +1151,20 @@ export function selectWeeklyTotals(state) {
 }
 
 export function selectWeeklyEngineDebug(state) {
-  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
+  const {
+    selectedRecipes,
+    adaptedRecipes,
+    adaptedPantry,
+    adaptedOverrides,
+    effectivePantryItems,
+  } = buildEffectiveEngineInputs(state);
 
   if (!selectedRecipes.length) return null;
-
-  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
-  const adaptedPantry = adaptPantryItemsForEngine(state);
 
   const engineResult = computeWeeklySavingsEngineV1({
     recipes: adaptedRecipes.recipes,
     ingredientMaster,
-    pantryItems: adaptedPantry.pantryItems,
+    pantryItems: effectivePantryItems,
   });
 
   return {
@@ -971,12 +1174,179 @@ export function selectWeeklyEngineDebug(state) {
       rejected_recipe_lines: adaptedRecipes.report.rejected_recipe_lines,
       accepted_pantry_rows: adaptedPantry.report.accepted_pantry_rows,
       rejected_pantry_rows: adaptedPantry.report.rejected_pantry_rows,
+      accepted_override_rows: adaptedOverrides.report.accepted_override_rows,
+      rejected_override_rows: adaptedOverrides.report.rejected_override_rows,
     },
   };
 }
 
+export function selectWeeklyMealSlotCards(state) {
+  const {
+    selectedMealSlots,
+    selectedRecipes,
+    adaptedRecipes,
+    effectivePantryItems,
+  } = buildEffectiveEngineInputs(state);
+
+  if (!selectedRecipes.length) {
+    return {};
+  }
+
+  const engineResult = computeWeeklySavingsEngineV1({
+    recipes: adaptedRecipes.recipes,
+    ingredientMaster,
+    pantryItems: effectivePantryItems,
+  });
+
+  const costByIngredient = engineResult?.cart?.cost_by_ingredient ?? {};
+
+  const totalQtyByIngredient = {};
+
+  for (const adaptedRecipe of adaptedRecipes.recipes) {
+    for (const ingredient of adaptedRecipe.ingredients ?? []) {
+      const ingredientId = ingredient.ingredient_id;
+      const qty = Number(ingredient.qty ?? 0);
+
+      if (!ingredientId || !Number.isFinite(qty) || qty <= 0) continue;
+
+      totalQtyByIngredient[ingredientId] =
+        Number(totalQtyByIngredient[ingredientId] ?? 0) + qty;
+    }
+  }
+
+  const slotCards = {};
+
+  adaptedRecipes.recipes.forEach((adaptedRecipe, index) => {
+    const slotMeta = selectedMealSlots[index];
+    if (!slotMeta) return;
+
+    let liveHomeCost = 0;
+
+    for (const ingredient of adaptedRecipe.ingredients ?? []) {
+      const ingredientId = ingredient.ingredient_id;
+      const recipeQty = Number(ingredient.qty ?? 0);
+      const totalQty = Number(totalQtyByIngredient[ingredientId] ?? 0);
+      const purchasedCost = Number(costByIngredient[ingredientId] ?? 0);
+
+      if (
+        !ingredientId ||
+        !Number.isFinite(recipeQty) ||
+        recipeQty <= 0 ||
+        !Number.isFinite(totalQty) ||
+        totalQty <= 0 ||
+        !Number.isFinite(purchasedCost) ||
+        purchasedCost <= 0
+      ) {
+        continue;
+      }
+
+      liveHomeCost += purchasedCost * (recipeQty / totalQty);
+    }
+
+    const restaurantPrice = Number(slotMeta.scaledRecipe?.restaurantPrice ?? 0);
+    const savings = restaurantPrice - liveHomeCost;
+
+    slotCards[`${slotMeta.dayKey}|${slotMeta.slotKey}`] = {
+      dayKey: slotMeta.dayKey,
+      slotKey: slotMeta.slotKey,
+      recipeId: slotMeta.recipeId,
+      recipeName: slotMeta.recipeName ?? "Untitled Recipe",
+      portions: Number(slotMeta.portions ?? DEFAULT_PORTIONS),
+      restaurantPrice,
+      homeCost: liveHomeCost,
+      savings,
+    };
+  });
+
+  return slotCards;
+}
+
+export function selectRecipePreviewCostBreakdown(state, recipeId, portions = DEFAULT_PORTIONS) {
+  const allRecipes = state?.recipes ?? [];
+  const recipe = allRecipes.find((r) => r?.id === recipeId);
+
+  if (!recipe) {
+    return {
+      hasPreview: false,
+      cartTotal: 0,
+      items: [],
+    };
+  }
+
+  const previewRecipe = scaleRecipeForEngine(recipe, portions);
+  const adaptedRecipes = adaptRecipesForWeeklyEngine([previewRecipe]);
+  const adaptedPantry = adaptPantryItemsForEngine(state);
+  const adaptedOverrides = adaptIngredientAvailabilityOverridesForEngine(state, [previewRecipe]);
+  const effectivePantryItems = [
+    ...adaptedPantry.pantryItems,
+    ...adaptedOverrides.pantryItems,
+  ];
+
+  if (!(adaptedRecipes?.recipes?.length)) {
+    return {
+      hasPreview: true,
+      cartTotal: 0,
+      items: [],
+    };
+  }
+
+  const engineResult = computeWeeklySavingsEngineV1({
+    recipes: adaptedRecipes.recipes,
+    ingredientMaster,
+    pantryItems: effectivePantryItems,
+  });
+
+  const cart = engineResult?.cart ?? {};
+  const netRequired = cart.net_required_base ?? {};
+  const packagesToBuy = cart.packages_to_buy ?? {};
+  const costByIngredient = cart.cost_by_ingredient ?? {};
+
+  const ingredientIds = Array.from(
+    new Set([
+      ...Object.keys(netRequired),
+      ...Object.keys(packagesToBuy),
+      ...Object.keys(costByIngredient),
+    ])
+  ).filter((ingredientId) => {
+    const needQty = Number(netRequired[ingredientId] ?? 0);
+    const packages = Number(packagesToBuy[ingredientId] ?? 0);
+    const cost = Number(costByIngredient[ingredientId] ?? 0);
+
+    return needQty > 0 || packages > 0 || cost > 0;
+  });
+
+  const items = ingredientIds
+    .map((ingredientId) => {
+      const unit = ingredientMaster[ingredientId]?.base_unit ?? "";
+      const needQty = Number(netRequired[ingredientId] ?? 0);
+      const packages = Number(packagesToBuy[ingredientId] ?? 0);
+      const cost = Number(costByIngredient[ingredientId] ?? 0);
+
+      return {
+        ingredientId,
+        label: formatIngredientLabelForShopping(ingredientId),
+        needQty,
+        needQtyText: formatBaseQtyForShopping(needQty),
+        unit,
+        packages,
+        cost,
+      };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  return {
+    hasPreview: true,
+    cartTotal: Number(cart.cart_total_cost ?? 0),
+    items,
+  };
+}
+
 export function selectShoppingList(state) {
-  const selectedRecipes = collectSelectedRecipesFromMealPlan(state);
+  const {
+    selectedRecipes,
+    adaptedRecipes,
+    effectivePantryItems,
+  } = buildEffectiveEngineInputs(state);
 
   if (!selectedRecipes.length) {
     return {
@@ -986,13 +1356,10 @@ export function selectShoppingList(state) {
     };
   }
 
-  const adaptedRecipes = adaptRecipesForWeeklyEngine(selectedRecipes);
-  const adaptedPantry = adaptPantryItemsForEngine(state);
-
   const engineResult = computeWeeklySavingsEngineV1({
     recipes: adaptedRecipes.recipes,
     ingredientMaster,
-    pantryItems: adaptedPantry.pantryItems,
+    pantryItems: effectivePantryItems,
   });
 
   const cart = engineResult?.cart ?? {};

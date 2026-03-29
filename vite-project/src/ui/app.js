@@ -6,7 +6,9 @@ import {
   selectWeeklyEngineDebug,
   selectChefMayaHelp,
   selectShoppingList,
+  selectRecipePreviewCostBreakdown,
 } from "../state/index.js";
+import { selectWeeklyMealSlotCards } from "../state/selectors.js";
 import { renderSelectionGrid } from "./SelectionGrid.jsx";
 import { GUIDED_PANTRY_CATALOG } from "../data/pantryCatalog.js";
 import { pantryStaplesDatabase } from "../data/pantryStaples.js";
@@ -16,7 +18,6 @@ import { recipeSeed } from "../data/recipeSeed.js";
    DarsNest AI Kitchen OS — app.js
    Guided Pantry Add v1 + Shopping page wiring
    Recipes genre filter row added under AI Recipes
-   Home quick actions + View All wired
    ========================================================= */
 
 const SUPABASE_URL = config.supabaseUrl;
@@ -47,8 +48,6 @@ const RECIPE_GENRE_OPTIONS = [
   { key: "american", label: "American" },
   { key: "comfort", label: "Classic" },
   { key: "breakfast", label: "Breakfast" },
-  { key: "chicken", label: "Chicken" },
-  { key: "beef", label: "Beef" },
   { key: "seafood", label: "Seafood" },
   { key: "sauces", label: "Sauces" },
 ];
@@ -127,6 +126,11 @@ function getShoppingHasMeals(shopping) {
   return false;
 }
 
+function getShoppingHasPreview(shopping) {
+  if (typeof shopping?.hasPreview === "boolean") return shopping.hasPreview;
+  return false;
+}
+
 function getShoppingCartTotal(shopping) {
   if (Number.isFinite(Number(shopping?.cartTotal))) return Number(shopping.cartTotal);
   if (Number.isFinite(Number(shopping?.totalPurchasedCost))) return Number(shopping.totalPurchasedCost);
@@ -189,6 +193,7 @@ function normalizeShoppingItem(rawItem) {
 function getNormalizedShoppingView(shopping) {
   return {
     hasMeals: getShoppingHasMeals(shopping),
+    hasPreview: getShoppingHasPreview(shopping),
     cartTotal: getShoppingCartTotal(shopping),
     items: getShoppingItems(shopping).map(normalizeShoppingItem),
   };
@@ -215,6 +220,23 @@ function toast(msg, icon = "✅") {
 
 function normalizeKey(s) {
   return String(s || "").trim().toLowerCase();
+}
+
+function getIngredientAvailabilityOverride(recipeId, ingredientKey) {
+  const overrides = appState.ingredientAvailabilityOverrides ?? {};
+  const normalizedIngredientKey = normalizeKey(ingredientKey);
+
+  const globalValue = overrides[normalizedIngredientKey];
+  if (globalValue !== undefined) {
+    return !!globalValue;
+  }
+
+  const legacyValue = overrides[`${recipeId}|${normalizedIngredientKey}`];
+  if (legacyValue !== undefined) {
+    return !!legacyValue;
+  }
+
+  return undefined;
 }
 
 function pantryKey(item) {
@@ -351,6 +373,43 @@ function scaleRecipeForDisplay(recipe, portions = DEFAULT_PORTIONS) {
     }),
     homeCost: Number(recipe.homeCost || 0) * factor,
     restaurantPrice: Number(recipe.restaurantPrice || 0) * factor,
+  };
+}
+
+function getLiveRecipePricingForDisplay(recipe, { forDay = null, forMealSlot = null } = {}) {
+  if (forDay && forMealSlot) {
+    const slotCards = selectWeeklyMealSlotCards(appState);
+    const slotCard = slotCards[`${forDay}|${forMealSlot}`];
+
+    if (slotCard) {
+      return {
+        restaurantPrice: Number(slotCard.restaurantPrice ?? 0),
+        homeCost: Number(slotCard.homeCost ?? 0),
+        savings: Number(slotCard.savings ?? 0),
+      };
+    }
+  }
+
+  const gridCards = selectRecipesForGrid(appState);
+  const gridCard = gridCards.find((item) => item.id === recipe?.id);
+
+  if (gridCard) {
+    const restaurantPrice = Number(gridCard.restaurant_price ?? recipe?.restaurantPrice ?? 0);
+    const homeCost = Number(gridCard.home_cost ?? recipe?.homeCost ?? 0);
+    return {
+      restaurantPrice,
+      homeCost,
+      savings: restaurantPrice - homeCost,
+    };
+  }
+
+  const restaurantPrice = Number(recipe?.restaurantPrice ?? 0);
+  const homeCost = Number(recipe?.homeCost ?? 0);
+
+  return {
+    restaurantPrice,
+    homeCost,
+    savings: restaurantPrice - homeCost,
   };
 }
 
@@ -1078,10 +1137,9 @@ function computeReadiness(recipe) {
   let have = 0;
   for (const ing of recipe.ingredients) {
     const key = normalizeKey(ing.key || ing.name);
-    const overrideKey = `${recipe.id}|${key}`;
-    const override = appState.ingredientAvailabilityOverrides[overrideKey];
+    const override = getIngredientAvailabilityOverride(recipe.id, key);
     const inPantry = pantrySet.has(key);
-    const available = override === undefined ? inPantry : !!override;
+    const available = override === undefined ? inPantry : override;
     if (available) have += 1;
   }
 
@@ -1120,19 +1178,22 @@ function renderRecipesSelectionGrid() {
   }
 }
 
-function renderMealSlot(dayKey, slotKey) {
+function renderMealSlot(dayKey, slotKey, weeklyMealSlotCards = {}) {
   const slotState = getMealSlotState(dayKey, slotKey);
   const recipe = slotState.recipeId ? getRecipeById(slotState.recipeId) : null;
-  const scaledRecipe = recipe ? scaleRecipeForDisplay(recipe, slotState.portions) : null;
-  const save = scaledRecipe
-    ? Math.max(0, Number(scaledRecipe.restaurantPrice || 0) - Number(scaledRecipe.homeCost || 0))
-    : 0;
+  const slotCard = weeklyMealSlotCards[`${dayKey}|${slotKey}`] ?? null;
 
   const isPendingPlacement = !!appState._pendingAddRecipeId;
   const slotLabel = getMealSlotLabel(slotKey);
   const openClass = isSlotOpen(dayKey, slotKey)
     ? " box-shadow: inset 0 0 0 1px rgba(255,255,255,.12);"
     : "";
+
+  const recipeName = slotCard?.recipeName || recipe?.name || "Untitled Recipe";
+  const restaurantPrice = Number(slotCard?.restaurantPrice ?? 0);
+  const homeCost = Number(slotCard?.homeCost ?? 0);
+  const savings = Number(slotCard?.savings ?? 0);
+  const savingsColor = savings >= 0 ? "var(--save)" : "var(--loss)";
 
   return `
     <button
@@ -1160,14 +1221,16 @@ function renderMealSlot(dayKey, slotKey) {
       </div>
 
       <div style="font-size:13px; font-weight:800; color: var(--text); line-height:1.3;">
-        ${recipe ? escapeHtml(recipe.name) : (isPendingPlacement ? `Tap to place ${escapeHtml(slotLabel)}` : "Tap to add")}
+        ${recipe ? escapeHtml(recipeName) : (isPendingPlacement ? `Tap to place ${escapeHtml(slotLabel)}` : "Tap to add")}
       </div>
 
       ${
         recipe
           ? `
             <div style="font-size:11px; color: var(--muted);">${escapeHtml(String(slotState.portions))} portions</div>
-            <div style="font-size:11px; font-weight:900; color: var(--save);">+${escapeHtml(money(save))} saved</div>
+            <div style="font-size:11px; color: rgba(239,68,68,.9); font-weight:800;">Restaurant ${escapeHtml(money(restaurantPrice))}</div>
+            <div style="font-size:11px; color: var(--text); font-weight:800;">Home ${escapeHtml(money(homeCost))}</div>
+            <div style="font-size:11px; font-weight:900; color: ${savingsColor};">Savings ${escapeHtml(money(savings))}</div>
           `
           : isPendingPlacement
             ? `<div style="font-size:11px; color: var(--muted);">${escapeHtml(String(appState._pendingAddPortions || DEFAULT_PORTIONS))} pending portions</div>`
@@ -1180,6 +1243,8 @@ function renderMealSlot(dayKey, slotKey) {
 function renderWeekCalendar() {
   if (!dom.weekCalendar) return;
 
+  const weeklyMealSlotCards = selectWeeklyMealSlotCards(appState);
+
   dom.weekCalendar.innerHTML = WEEK_DAYS
     .map((d) => {
       ensureDayPlan(d.key);
@@ -1190,9 +1255,9 @@ function renderWeekCalendar() {
           <div class="day-date">—</div>
 
           <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-            ${renderMealSlot(d.key, "breakfast")}
-            ${renderMealSlot(d.key, "lunch")}
-            ${renderMealSlot(d.key, "dinner")}
+            ${renderMealSlot(d.key, "breakfast", weeklyMealSlotCards)}
+            ${renderMealSlot(d.key, "lunch", weeklyMealSlotCards)}
+            ${renderMealSlot(d.key, "dinner", weeklyMealSlotCards)}
           </div>
         </div>
       `;
@@ -1544,6 +1609,55 @@ function renderWeeklyPooledCartSummary() {
   `;
 }
 
+function renderRecipePreviewCostBreakdown(recipeId, portions) {
+  const preview = getNormalizedShoppingView(
+    selectRecipePreviewCostBreakdown(appState, recipeId, portions)
+  );
+
+  if (!preview.items.length) {
+    return `
+      <div style="margin-top:10px; color: var(--muted); font-size:13px;">
+        No additional purchases needed for this recipe preview.
+      </div>
+    `;
+  }
+
+  const rows = preview.items
+    .map((item) => {
+      const needText = item.unit ? `${item.needQtyText} ${item.unit}` : item.needQtyText;
+
+      return `
+        <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; align-items:center; padding:10px 0; border-top:1px solid rgba(255,255,255,.06);">
+          <div style="font-weight:800; color: var(--text);">${escapeHtml(item.label)}</div>
+          <div style="font-size:12px; color: var(--muted);">${escapeHtml(needText)}</div>
+          <div style="font-size:12px; color: var(--muted); text-align:center;">${escapeHtml(String(item.packages))}</div>
+          <div style="font-size:12px; color: var(--text); font-weight:800; text-align:right;">${escapeHtml(money(item.cost))}</div>
+        </div>
+      `;
+    })
+    .join("");
+
+  return `
+    <div style="margin-top:10px; display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div style="font-size:12px; color: var(--muted); font-weight:800;">Recipe Preview Total</div>
+        <div style="font-size:16px; color: var(--text); font-weight:900;">${escapeHtml(money(preview.cartTotal))}</div>
+      </div>
+
+      <div style="display:grid; grid-template-columns: 1.2fr .9fr .8fr .8fr; gap:8px; padding:0 0 6px; font-size:11px; color: var(--muted); font-weight:900; text-transform:uppercase; letter-spacing:.04em;">
+        <div>Ingredient</div>
+        <div>Need</div>
+        <div style="text-align:center;">Packages</div>
+        <div style="text-align:right;">Cost</div>
+      </div>
+
+      <div style="display:flex; flex-direction:column;">
+        ${rows}
+      </div>
+    </div>
+  `;
+}
+
 function renderChefMayaSection(title, items, renderItem) {
   if (!items?.length) return "";
 
@@ -1630,13 +1744,18 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
     readinessPct: readiness,
   });
 
+  const livePricing = getLiveRecipePricingForDisplay(r, { forDay, forMealSlot });
+  const restaurantPrice = Number(livePricing.restaurantPrice ?? 0);
+  const homeCost = Number(livePricing.homeCost ?? 0);
+  const savings = Number(livePricing.savings ?? 0);
+  const savingsColor = savings >= 0 ? "var(--save)" : "var(--loss)";
+
   const ingredientsHtml = r.ingredients
     .map((ing) => {
       const key = normalizeKey(ing.key || ing.name);
-      const overrideKey = `${appState._lastOpenedRecipeId}|${key}`;
       const inPantry = pantrySet.has(key);
-      const override = appState.ingredientAvailabilityOverrides[overrideKey];
-      const available = override === undefined ? inPantry : !!override;
+      const override = getIngredientAvailabilityOverride(appState._lastOpenedRecipeId || r.id, key);
+      const available = override === undefined ? inPantry : override;
 
       return `
         <li class="ingredient-item" data-ing-key="${escapeAttr(key)}" style="display:flex; align-items:center; gap:10px;">
@@ -1668,7 +1787,6 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
     )
     .join("");
 
-  const save = Math.max(0, Number(r.restaurantPrice || 0) - Number(r.homeCost || 0));
   const slotContext =
     forDay && forMealSlot
       ? `
@@ -1691,6 +1809,11 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
       `
     : "";
 
+  const costBreakdownHtml =
+    forDay && forMealSlot
+      ? renderWeeklyPooledCartSummary()
+      : renderRecipePreviewCostBreakdown(appState._lastOpenedRecipeId || r.id, portions);
+
   return `
     <div style="display:flex; flex-direction:column; gap:14px;">
       <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
@@ -1700,9 +1823,9 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
           <div style="margin-top:6px; font-size:12px; color: var(--text); opacity:.9;">${readiness}% Ingredients Ready</div>
         </div>
         <div style="text-align:right;">
-          <div style="font-size:12px; color: rgba(239,68,68,.9); font-weight:800;">Restaurant ${money(r.restaurantPrice)}</div>
-          <div style="font-size:12px; color: var(--text); font-weight:800;">Home ${money(r.homeCost)}</div>
-          <div style="font-size:16px; color: var(--save); font-weight:900;">SAVE ${money(save)}</div>
+          <div style="font-size:12px; color: rgba(239,68,68,.9); font-weight:800;">Restaurant ${money(restaurantPrice)}</div>
+          <div style="font-size:12px; color: var(--text); font-weight:800;">Home ${money(homeCost)}</div>
+          <div style="font-size:16px; color: ${savingsColor}; font-weight:900;">SAVE ${money(savings)}</div>
         </div>
       </div>
 
@@ -1733,7 +1856,7 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
 
       <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
         <summary style="cursor:pointer; font-weight:900;">Cost Breakdown</summary>
-        ${renderWeeklyPooledCartSummary()}
+        ${costBreakdownHtml}
       </details>
 
       <div style="display:flex; gap:10px;">
@@ -1966,17 +2089,18 @@ function bindEvents() {
       const ingKey = toggleBtn.dataset.ingKey;
       if (!ingKey) return;
 
-      const recipeId = appState._lastOpenedRecipeId;
-      if (!recipeId) return;
-
-      const overrideKey = `${recipeId}|${normalizeKey(ingKey)}`;
+      const overrideKey = normalizeKey(ingKey);
       const current = appState.ingredientAvailabilityOverrides[overrideKey];
       appState.ingredientAvailabilityOverrides[overrideKey] = !(current === undefined ? false : current);
 
-      openRecipeModal(recipeId, {
-        forDay: appState._lastOpenedDay,
-        forMealSlot: appState._lastOpenedMealSlot,
-      });
+      const recipeId = appState._lastOpenedRecipeId;
+      if (recipeId) {
+        openRecipeModal(recipeId, {
+          forDay: appState._lastOpenedDay,
+          forMealSlot: appState._lastOpenedMealSlot,
+        });
+      }
+
       renderRecipesSelectionGrid();
       renderWeekCalendar();
       return;
@@ -2001,6 +2125,7 @@ function bindEvents() {
 
       const next = Math.max(MIN_PORTIONS, getPreviewPortions(recipeId) - 1);
       setPreviewPortions(recipeId, next);
+      renderRecipesSelectionGrid();
       openRecipeModal(recipeId);
       return;
     }
@@ -2024,6 +2149,7 @@ function bindEvents() {
 
       const next = Math.min(MAX_PORTIONS, getPreviewPortions(recipeId) + 1);
       setPreviewPortions(recipeId, next);
+      renderRecipesSelectionGrid();
       openRecipeModal(recipeId);
       return;
     }

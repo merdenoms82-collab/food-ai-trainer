@@ -10,6 +10,7 @@ export {
   selectWeeklyEngineDebug,
   selectChefMayaHelp,
   selectShoppingList,
+  selectRecipePreviewCostBreakdown,
 } from "./selectors.js";
 
 export {
