@@ -32,6 +32,9 @@ export default function WeeklySavingsHeader({
         <div className="weekly-save" id="weeklySavingsTotal">
           {money(savingsTotal)}
         </div>
+        <div className="weekly-disclaimer">
+          Home costs are estimates based on average US grocery prices.
+        </div>
       </div>
     </>
   );
