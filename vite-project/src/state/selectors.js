@@ -298,6 +298,14 @@ function scaleRecipeForEngine(recipe, portions) {
   };
 }
 
+function normalizeFraction(str) {
+  // "1/2 cup" → "0.5 cup", "1/4 tsp" → "0.25 tsp", "1/2" → "0.5"
+  return str.replace(/^(\d+)\/(\d+)/, (_, n, d) => {
+    const denom = parseInt(d, 10);
+    return denom === 0 ? _ : String(parseInt(n, 10) / denom);
+  });
+}
+
 function adaptRecipeLineForEngine(line) {
   const source_key = normalizeKey(line?.ingredient_id ?? line?.key ?? "");
   const mapped_ingredient_id = getRecipeIngredientId(line);
@@ -355,8 +363,9 @@ function adaptRecipeLineForEngine(line) {
   }
 
   const baseUnit = singularizeUnit(ingredient.base_unit);
+  const qtyStr = normalizeFraction(rawQty);
 
-  const unitMatch = rawQty.match(/^(\d+(?:\.\d+)?)\s+([a-zA-Z]+)$/);
+  const unitMatch = qtyStr.match(/^(\d+(?:\.\d+)?)\s+([a-zA-Z]+)$/);
   if (unitMatch) {
     const qty = Number.parseFloat(unitMatch[1]);
     const unit = singularizeUnit(unitMatch[2]);
@@ -408,7 +417,7 @@ function adaptRecipeLineForEngine(line) {
     };
   }
 
-  const bareNumberMatch = rawQty.match(/^(\d+(?:\.\d+)?)$/);
+  const bareNumberMatch = qtyStr.match(/^(\d+(?:\.\d+)?)$/);
   if (bareNumberMatch && baseUnit === "whole") {
     const qty = Number.parseFloat(bareNumberMatch[1]);
 

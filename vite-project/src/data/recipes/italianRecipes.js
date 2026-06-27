@@ -10,7 +10,7 @@ export const italianRecipes = [
       { name: "Chicken Breast", qty: "1.5 lb", key: "chicken breast" },
       { name: "Pasta", qty: "1 box", key: "pasta" },
       { name: "Parmesan", qty: "8 oz", key: "parmesan" },
-      { name: "Heavy Cream", qty: "1 pint", key: "heavy cream" },
+      { name: "Heavy Cream", qty: "2 cups", key: "heavy cream" },
       { name: "Garlic", qty: "3 cloves", key: "garlic" },
       { name: "Salt", qty: "to taste", key: "salt" },
       { name: "Black Pepper", qty: "to taste", key: "black pepper" },
