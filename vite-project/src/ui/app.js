@@ -652,9 +652,12 @@ function buildGuidedPantryModal() {
         </button>
         <div class="modal-title" id="guidedPantryTitle">Manual Add</div>
       </div>
-      <button class="close-btn" id="closeGuidedPantryBtn" aria-label="Close">
-        <i class="fas fa-times"></i>
-      </button>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="btn btn-primary" id="guidedDoneBtn" type="button" style="display:none; height:36px; padding:0 14px; font-size:13px; font-weight:700;">Done</button>
+        <button class="close-btn" id="closeGuidedPantryBtn" aria-label="Close">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
     </div>
 
     <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
@@ -709,6 +712,7 @@ function buildGuidedPantryModal() {
     intro: $("#guidedPantryIntro"),
     backBtn: $("#guidedPantryBackBtn"),
     closeBtn: $("#closeGuidedPantryBtn"),
+    doneBtn: $("#guidedDoneBtn"),
     options: $("#guidedPantryOptions"),
     confirm: $("#guidedPantryConfirm"),
     preview: $("#guidedPantryPreview"),
@@ -718,7 +722,8 @@ function buildGuidedPantryModal() {
   };
 }
 
-function resetGuidedPantryState() {
+function resetGuidedPantryState(keepSession = false) {
+  const prevCount = keepSession ? (appState._guidedPantry?.sessionCount ?? 0) : 0;
   appState._guidedPantry = {
     step: "category",
     categoryId: null,
@@ -726,6 +731,7 @@ function resetGuidedPantryState() {
     variantId: null,
     quantity: "1",
     unit: "",
+    sessionCount: prevCount,
   };
 }
 
@@ -822,8 +828,18 @@ function renderGuidedPantryModal() {
   const state = appState._guidedPantry;
   const category = getGuidedCategory();
   const item = getGuidedItem();
+  const count = state.sessionCount || 0;
 
   guidedPantryDom.backBtn.style.display = state.step === "category" ? "none" : "inline-flex";
+
+  if (guidedPantryDom.doneBtn) {
+    if (count > 0) {
+      guidedPantryDom.doneBtn.style.display = "inline-flex";
+      guidedPantryDom.doneBtn.textContent = `Done (${count})`;
+    } else {
+      guidedPantryDom.doneBtn.style.display = "none";
+    }
+  }
 
   if (state.step === "category") {
     guidedPantryDom.title.textContent = "Pick Category";
@@ -973,6 +989,7 @@ function bindGuidedPantryEvents() {
   if (!guidedPantryDom) return;
 
   guidedPantryDom.closeBtn?.addEventListener("click", closeGuidedPantryModal);
+  guidedPantryDom.doneBtn?.addEventListener("click", closeGuidedPantryModal);
   guidedPantryDom.backBtn?.addEventListener("click", stepBackGuidedPantry);
 
   guidedPantryDom.options?.addEventListener("click", (e) => {
@@ -1022,8 +1039,18 @@ function bindGuidedPantryEvents() {
       expiry_date: null,
     });
 
-    closeGuidedPantryModal();
-    toast(`${name} added to pantry.`, "✅");
+    const nextCount = (appState._guidedPantry.sessionCount || 0) + 1;
+    const savedCategoryId = appState._guidedPantry.categoryId;
+    appState._guidedPantry = {
+      step: "item",
+      categoryId: savedCategoryId,
+      itemId: null,
+      variantId: null,
+      quantity: "1",
+      unit: "",
+      sessionCount: nextCount,
+    };
+    renderGuidedPantryModal();
   });
 }
 
