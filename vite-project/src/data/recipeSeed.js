@@ -4,6 +4,8 @@ import { americanRecipes } from "./recipes/americanRecipes.js";
 import { asianRecipes } from "./recipes/asianRecipes.js";
 import { comfortRecipes } from "./recipes/comfortRecipes.js";
 import { breakfastRecipes } from "./recipes/breakfastRecipes.js";
+import { lunchRecipes } from "./recipes/lunchRecipes.js";
+import { sideRecipes } from "./recipes/sideRecipes.js";
 import { sauceRecipes } from "./recipes/sauceRecipes.js";
 
 export const recipeSeed = [
@@ -13,5 +15,7 @@ export const recipeSeed = [
   ...asianRecipes,
   ...comfortRecipes,
   ...breakfastRecipes,
+  ...lunchRecipes,
+  ...sideRecipes,
   ...sauceRecipes,
 ];

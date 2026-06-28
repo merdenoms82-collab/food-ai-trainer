@@ -394,8 +394,11 @@ i{ pointer-events:none; }
 .search-input::placeholder{ color: rgba(156,163,175,.75); }
 
 .add-item-btn{
-  width: 44px;
   height: 44px;
+  padding: 0 14px;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
   border-radius: var(--r);
   border: 1px solid var(--divider);
   background: var(--surface-2);
@@ -403,9 +406,16 @@ i{ pointer-events:none; }
   display:flex;
   align-items:center;
   justify-content:center;
+  white-space: nowrap;
   transition: transform var(--t), background var(--t);
 }
 .add-item-btn:active{ transform: scale(.98); background: rgba(255,255,255,.05); }
+
+.pantry-add-btn{
+  width: 100%;
+  gap: 8px;
+  margin-bottom: 14px;
+}
 
 .pantry-categories{
   display:flex;

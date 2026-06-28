@@ -24,7 +24,7 @@ export const americanRecipes = [
     name: "Cheeseburgers & Fries",
     image: null,
     emoji: "🍔",
-    restaurantPrice: 22,
+    restaurantPrice: 28,
     homeCost: 9,
     ingredients: [
       { name: "Ground Beef", qty: "1.5 lb", key: "ground beef" },
@@ -68,7 +68,7 @@ export const americanRecipes = [
     name: "BBQ Chicken Sandwiches",
     image: null,
     emoji: "🍗",
-    restaurantPrice: 19,
+    restaurantPrice: 21,
     homeCost: 7,
     ingredients: [
       { name: "Chicken Breast", qty: "1.5 lb", key: "chicken breast" },

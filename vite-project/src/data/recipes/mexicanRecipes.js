@@ -25,7 +25,7 @@ export const mexicanRecipes = [
     name: "Beef Tacos",
     image: null,
     emoji: "🌮",
-    restaurantPrice: 18,
+    restaurantPrice: 22,
     homeCost: 6,
     ingredients: [
       { name: "Ground Beef", qty: "1 lb", key: "ground beef" },

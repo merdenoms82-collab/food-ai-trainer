@@ -77,6 +77,46 @@ const VOLUME_MEASURE_UNITS = new Set([
   "liters",
 ]);
 
+// Shelf-stable ingredients assumed to be already owned by any cooking household.
+// Engine injects 9999 units of each so net_required = 0 → $0 package cost.
+const PANTRY_STAPLE_IDS = new Set([
+  "spice",                 // catches salt + black pepper via key mapping
+  "olive oil",
+  "butter",                // cooking fat — universally stocked even though it's dairy
+  "garlic powder",
+  "onion powder",
+  "cayenne pepper",
+  "red pepper flakes",
+  "nutmeg",
+  "basil",
+  "parsley",
+  "dill",
+  "mustard",
+  "mayonnaise",            // refrigerated but universally stocked condiment
+  "vinegar",
+  "apple cider vinegar",
+  "soy sauce",
+  "bbq sauce",
+  "tomato paste",
+  "adobo sauce",
+  "chipotle peppers",
+  "prepared horseradish",
+  "flour",
+  "sugar",
+  "honey",
+  "bread crumbs",
+]);
+
+function buildAutoStaplePantryItems() {
+  return [...PANTRY_STAPLE_IDS]
+    .filter((id) => ingredientMaster[id])
+    .map((id) => ({
+      ingredient_id: id,
+      qty: 9999,
+      unit: ingredientMaster[id].base_unit,
+    }));
+}
+
 const CHEF_MAYA_SUBSTITUTIONS = {
   "chicken breast": {
     label: "Chicken Breast",
@@ -857,6 +897,7 @@ function buildEffectiveEngineInputs(state) {
     effectivePantryItems: [
       ...adaptedPantry.pantryItems,
       ...adaptedOverrides.pantryItems,
+      ...buildAutoStaplePantryItems(),
     ],
   };
 }

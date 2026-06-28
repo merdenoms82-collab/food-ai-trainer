@@ -48,6 +48,7 @@ const RECIPE_GENRE_OPTIONS = [
   { key: "american", label: "American" },
   { key: "comfort", label: "Classic" },
   { key: "breakfast", label: "Breakfast" },
+  { key: "lunch", label: "Lunch" },
   { key: "seafood", label: "Seafood" },
   { key: "sauces", label: "Sauces" },
 ];
@@ -479,6 +480,7 @@ const dom = {
   pantryCats: $$(".category-tab"),
   addItemBtn: $("#addItemBtn"),
   addMenu: $("#addMenu"),
+  pantryAddItemBtn: $("#pantryAddItemBtn"),
 
   homePantryItems: $("#homePantryItems"),
   totalItemsCount: $("#totalItemsCount"),
@@ -2004,6 +2006,10 @@ function bindEvents() {
   dom.addItemBtn?.addEventListener("click", (e) => {
     e.preventDefault();
     toggleAddMenu();
+  });
+
+  dom.pantryAddItemBtn?.addEventListener("click", () => {
+    openGuidedPantryModal();
   });
 
   dom.addMenu?.addEventListener("click", (e) => {
