@@ -118,4 +118,13 @@ export const ingredientMaster = {
   nutmeg:          { id: "nutmeg",          base_unit: "tsp",   package_size: 10,  package_price: 3.50 },
   "cayenne pepper":{ id: "cayenne pepper",  base_unit: "tsp",   package_size: 10,  package_price: 3.00 },
   "red pepper flakes":{ id: "red pepper flakes", base_unit: "tsp", package_size: 10, package_price: 3.00 },
+
+  // ── NEW — feat/more-recipes ───────────────────────────────────────────────
+  tuna:            { id: "tuna",            base_unit: "can",   package_size: 1,   package_price: 2.00 },
+  turkey:          { id: "turkey",          base_unit: "lb",    package_size: 1,   package_price: 7.00 },
+  avocado:         { id: "avocado",         base_unit: "whole", package_size: 1,   package_price: 1.50 },
+  "feta cheese":   { id: "feta cheese",     base_unit: "oz",    package_size: 4,   package_price: 3.00 },
+  "rolled oats":   { id: "rolled oats",     base_unit: "cup",   package_size: 10,  package_price: 3.50 },
+  "frozen berries":{ id: "frozen berries",  base_unit: "bag",   package_size: 1,   package_price: 4.50 },
+  banana:          { id: "banana",          base_unit: "whole", package_size: 1,   package_price: 0.30 },
 };
