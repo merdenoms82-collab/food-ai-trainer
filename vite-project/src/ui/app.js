@@ -1,4 +1,4 @@
-import { config } from "../state/index.js";
+import { config, persistSave, persistLoad } from "../state/index.js";
 import {
   appState,
   selectRecipesForGrid,
@@ -197,6 +197,12 @@ function getNormalizedShoppingView(shopping) {
     cartTotal: getShoppingCartTotal(shopping),
     items: getShoppingItems(shopping).map(normalizeShoppingItem),
   };
+}
+
+let _saveTimer = null;
+function scheduleStateSave() {
+  clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => persistSave(appState), 300);
 }
 
 function debounce(fn, ms = 150) {
@@ -1468,6 +1474,7 @@ async function saveSelectedStaplesToPantry() {
   }
 
   appState.selectedStaples.clear();
+  scheduleStateSave();
   closeStaplesModal();
   await loadPantryItems();
 }
@@ -1871,6 +1878,7 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
 
 function setActivePage(pageKey) {
   appState.currentPage = pageKey;
+  scheduleStateSave();
 
   Object.entries(dom.pages).forEach(([k, el]) => {
     if (!el) return;
@@ -2033,6 +2041,7 @@ function bindEvents() {
     else appState.selectedStaples.add(id);
 
     renderStaplesGrid();
+    scheduleStateSave();
   });
 
   document.addEventListener("click", (e) => {
@@ -2052,6 +2061,7 @@ function bindEvents() {
     $("#favoritesTab")?.classList.toggle("active", tabKey === "favorites");
 
     renderRecipesSelectionGrid();
+    scheduleStateSave();
   });
 
   document.addEventListener("click", (e) => {
@@ -2060,6 +2070,7 @@ function bindEvents() {
 
     appState.currentRecipeGenre = genreBtn.dataset.recipeGenre || "all";
     renderRecipesSelectionGrid();
+    scheduleStateSave();
   });
 
   dom.recipesGrid?.addEventListener("click", (e) => {
@@ -2103,6 +2114,7 @@ function bindEvents() {
 
       renderRecipesSelectionGrid();
       renderWeekCalendar();
+      scheduleStateSave();
       return;
     }
 
@@ -2120,6 +2132,7 @@ function bindEvents() {
         slotState.portions = Math.max(MIN_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) - 1);
         openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
         renderWeekCalendar();
+        scheduleStateSave();
         return;
       }
 
@@ -2127,6 +2140,7 @@ function bindEvents() {
       setPreviewPortions(recipeId, next);
       renderRecipesSelectionGrid();
       openRecipeModal(recipeId);
+      scheduleStateSave();
       return;
     }
 
@@ -2144,6 +2158,7 @@ function bindEvents() {
         slotState.portions = Math.min(MAX_PORTIONS, Number(slotState.portions || DEFAULT_PORTIONS) + 1);
         openRecipeModal(slotState.recipeId, { forDay: day, forMealSlot: mealSlot });
         renderWeekCalendar();
+        scheduleStateSave();
         return;
       }
 
@@ -2151,6 +2166,7 @@ function bindEvents() {
       setPreviewPortions(recipeId, next);
       renderRecipesSelectionGrid();
       openRecipeModal(recipeId);
+      scheduleStateSave();
       return;
     }
 
@@ -2163,6 +2179,7 @@ function bindEvents() {
       clearMealSlot(day, mealSlot);
       toast(`${getMealSlotLabel(mealSlot)} cleared.`, "🗑️");
       refreshExecutionStateAfterSlotMutation();
+      scheduleStateSave();
       return;
     }
 
@@ -2209,6 +2226,7 @@ function bindEvents() {
       appState._pendingAddPortions = DEFAULT_PORTIONS;
       toast(`${addedRecipe?.name || "Meal"} added to ${getMealSlotLabel(mealSlot)}.`, "✅");
       renderWeekCalendar();
+      scheduleStateSave();
       return;
     }
 
@@ -2437,9 +2455,16 @@ function escapeAttr(value) {
 }
 
 async function bootstrap() {
+  // Restore persisted state before applying defaults. Missing fields are filled
+  // by the || guards below, so future data-model additions don't crash old saves.
+  const saved = persistLoad();
+  if (saved) Object.assign(appState, saved);
+
   appState.userId = getDeviceUserId();
-  appState.pantryItems = [];
-  appState.selectedStaples = new Set();
+  appState.pantryItems = []; // always reload fresh from local / Supabase
+  appState.selectedStaples = appState.selectedStaples instanceof Set
+    ? appState.selectedStaples
+    : new Set();
   appState.currentPage = appState.currentPage || "home";
   appState.currentRecipeTab = appState.currentRecipeTab || "ai-recipes";
   appState.currentRecipeGenre = appState.currentRecipeGenre || "all";

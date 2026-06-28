@@ -23,3 +23,5 @@ export {
   selectFeatureFlags,
   selectIsFeatureAvailable,
 } from "./entitlements.js";
+
+export { save as persistSave, load as persistLoad } from "./persistence.js";
