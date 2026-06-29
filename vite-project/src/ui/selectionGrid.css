@@ -1,18 +1,21 @@
 /* src/ui/selectionGrid.css */
-/* Dark Mode v1 only. No gradients. No green except savings. No red except restaurant. 4px max radius. */
+/* D1 Violet. No gradients. No green except savings. No red except restaurant. */
 
 :root{
-  --dn-bg: #0B0F1A;
-  --dn-surface: #121826;
-  --dn-surface-2: #1A2235;
-  --dn-text: #F1F5F9;
-  --dn-muted: #9CA3AF;
-  --dn-divider: #273046;
+  --dn-bg:         #0F0D14;
+  --dn-surface:    #1C1827;
+  --dn-surface-2:  #231F32;
+  --dn-text:       #F2EFF9;
+  --dn-muted:      rgba(242,239,249,.45);
+  --dn-divider:    rgba(167,139,250,.16);
 
-  --dn-savings: #22C55E;
-  --dn-restaurant: #EF4444;
+  --dn-savings:    #4ADE80;   /* savings green — never violet */
+  --dn-restaurant: #F87171;   /* restaurant red — never violet */
 
-  --dn-r: 4px;
+  --dn-accent:     #A78BFA;
+  --dn-font-h:     'Fraunces', serif;
+
+  --dn-r: 14px;
 }
 
 .dn-selection{
@@ -70,6 +73,7 @@
   margin: 0;
   font-size: 15px;
   font-weight: 800;
+  font-family: var(--dn-font-h);
   color: var(--dn-text);
   line-height: 1.2;
   min-height: 36px;
