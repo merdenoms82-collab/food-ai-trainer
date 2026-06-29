@@ -1881,6 +1881,7 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
       </div>
 
       <div class="rd-panel active" data-panel="ingredients">
+        <p class="rd-ing-key">✓ Highlighted = already in your pantry · the rest is what you'll need to buy</p>
         <ul class="rd-ing-list">
           ${ingredientsHtml}
         </ul>
