@@ -160,7 +160,7 @@ i{ pointer-events:none; }
   overflow-y:auto;
   -webkit-overflow-scrolling: touch;
   padding: var(--pad);
-  padding-bottom: 96px; /* tab bar + safe area */
+  padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px) + 20px);
   opacity:0;
   transform: translateX(10px);
   pointer-events:none;
