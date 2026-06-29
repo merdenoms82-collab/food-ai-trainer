@@ -1421,6 +1421,19 @@ function openRecipeModal(recipeId, { forDay = null, forMealSlot = null } = {}) {
     forMealSlot,
     portions: activePortions,
   });
+
+  const rdTabs = dom.recipeModalContent.querySelector(".rd-tabs");
+  if (rdTabs) {
+    rdTabs.addEventListener("click", (e) => {
+      const tab = e.target.closest(".rd-tab");
+      if (!tab) return;
+      const target = tab.dataset.tab;
+      rdTabs.querySelectorAll(".rd-tab").forEach((t) => t.classList.remove("active"));
+      dom.recipeModalContent.querySelectorAll(".rd-panel").forEach((p) => p.classList.remove("active"));
+      tab.classList.add("active");
+      dom.recipeModalContent.querySelector(`.rd-panel[data-panel="${target}"]`)?.classList.add("active");
+    });
+  }
 }
 
 function clearOpenRecipeTracking() {
@@ -1698,11 +1711,9 @@ function renderChefMayaSection(title, items, renderItem) {
   if (!items?.length) return "";
 
   return `
-    <div style="display:flex; flex-direction:column; gap:8px;">
-      <div style="font-size:12px; color: var(--text); font-weight:900; letter-spacing:.02em;">
-        ${escapeHtml(title)}
-      </div>
-      <div style="display:flex; flex-direction:column; gap:8px;">
+    <div class="rd-chef-section">
+      <div class="rd-chef-section-title">${escapeHtml(title)}</div>
+      <div class="rd-chef-section-items">
         ${items.map(renderItem).join("")}
       </div>
     </div>
@@ -1714,13 +1725,9 @@ function renderChefMayaHelpBlock(help) {
     "Step clarification",
     help?.stepClarifications ?? [],
     (item) => `
-      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
-        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
-          ${escapeHtml(item.title)}
-        </div>
-        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
-          ${escapeHtml(item.detail)}
-        </div>
+      <div class="rd-chef-item">
+        <div class="rd-chef-item-title">${escapeHtml(item.title)}</div>
+        <div class="rd-chef-item-body">${escapeHtml(item.detail)}</div>
       </div>
     `
   );
@@ -1729,13 +1736,9 @@ function renderChefMayaHelpBlock(help) {
     "Safe substitutions",
     help?.substitutions ?? [],
     (item) => `
-      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
-        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
-          ${escapeHtml(item.ingredient)}
-        </div>
-        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
-          ${escapeHtml(item.guidance)}
-        </div>
+      <div class="rd-chef-item">
+        <div class="rd-chef-item-title">${escapeHtml(item.ingredient)}</div>
+        <div class="rd-chef-item-body">${escapeHtml(item.guidance)}</div>
       </div>
     `
   );
@@ -1744,24 +1747,18 @@ function renderChefMayaHelpBlock(help) {
     "Timing & technique",
     help?.timingAndTechnique ?? [],
     (item) => `
-      <div style="padding:10px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r);">
-        <div style="font-size:12px; color: var(--text); font-weight:900; margin-bottom:4px;">
-          ${escapeHtml(item.title)}
-        </div>
-        <div style="margin:0; color: var(--muted); line-height:1.45; font-size:13px;">
-          ${escapeHtml(item.detail)}
-        </div>
+      <div class="rd-chef-item">
+        <div class="rd-chef-item-title">${escapeHtml(item.title)}</div>
+        <div class="rd-chef-item-body">${escapeHtml(item.detail)}</div>
       </div>
     `
   );
 
   return `
-    <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
-      <summary style="cursor:pointer; font-weight:900;">Chef Maya Help</summary>
-      <div style="margin-top:10px; display:flex; flex-direction:column; gap:12px;">
-        <div style="color: var(--muted); line-height:1.45; font-size:13px;">
-          ${escapeHtml(help?.intro ?? "")}
-        </div>
+    <details class="rd-chef-maya">
+      <summary>🍳 Chef Maya Tips</summary>
+      <div class="rd-chef-maya-inner">
+        <div class="rd-chef-item-body">${escapeHtml(help?.intro ?? "")}</div>
         ${stepClarifications}
         ${substitutions}
         ${timingTechnique}
@@ -1784,7 +1781,6 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
   const restaurantPrice = Number(livePricing.restaurantPrice ?? 0);
   const homeCost = Number(livePricing.homeCost ?? 0);
   const savings = Number(livePricing.savings ?? 0);
-  const savingsColor = savings >= 0 ? "var(--save)" : "var(--loss)";
 
   const ingredientsHtml = r.ingredients
     .map((ing) => {
@@ -1794,18 +1790,18 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
       const available = override === undefined ? inPantry : override;
 
       return `
-        <li class="ingredient-item" data-ing-key="${escapeAttr(key)}" style="display:flex; align-items:center; gap:10px;">
-          <span class="ingredient-emoji">${available ? "✔️" : "➕"}</span>
-          <div style="flex:1;">
-            <div class="ingredient-name" style="font-weight:900;">${escapeHtml(ing.name)}</div>
-            <div style="color: var(--muted); font-size:12px; margin-top:2px;">${escapeHtml(ing.qty || "")}</div>
+        <li class="rd-ing-row" data-ing-key="${escapeAttr(key)}">
+          <span class="rd-ing-icon">${available ? "✓" : "+"}</span>
+          <div class="rd-ing-info">
+            <span class="rd-ing-name">${escapeHtml(ing.name)}</span>
+            <span class="rd-ing-qty">${escapeHtml(ing.qty || "")}</span>
           </div>
-          <button class="btn btn-secondary"
+          <button class="rd-ing-toggle${available ? " is-available" : ""}"
                   type="button"
                   data-toggle-ingredient="1"
                   data-ing-key="${escapeAttr(key)}"
-                  style="height:36px; padding:0 10px;">
-            ${available ? "Available" : "Need"}
+                  aria-label="${available ? "Mark as needed" : "Mark as available"}">
+            ${available ? "✓" : ""}
           </button>
         </li>
       `;
@@ -1815,9 +1811,9 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
   const stepsHtml = (r.steps || [])
     .map(
       (s, idx) => `
-        <li class="instruction-step" style="padding:12px; background: var(--surface-2); border:1px solid rgba(255,255,255,.06); border-radius: var(--r); margin-bottom:10px;">
-          <div style="font-weight:900; margin-bottom:6px;">Step ${idx + 1}</div>
-          <div style="color: var(--text); opacity:.95; line-height:1.45;">${escapeHtml(s)}</div>
+        <li class="rd-step">
+          <div class="rd-step-num">${idx + 1}</div>
+          <div class="rd-step-text">${escapeHtml(s)}</div>
         </li>
       `
     )
@@ -1825,82 +1821,96 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
 
   const slotContext =
     forDay && forMealSlot
-      ? `
-          <div style="font-size:12px; color: var(--muted); font-weight:800; margin-top:6px;">
-            ${escapeHtml(forDay.toUpperCase())} • ${escapeHtml(getMealSlotLabel(forMealSlot))}
-          </div>
-        `
+      ? `<div class="rd-slot-ctx">${escapeHtml(forDay.toUpperCase())} • ${escapeHtml(getMealSlotLabel(forMealSlot))}</div>`
       : "";
 
   const primaryLabel = isSlotContext ? "Replace from Recipes" : "Add to Week";
 
   const removeButton = slotFilled
-    ? `
-        <button class="btn btn-secondary"
-                type="button"
-                data-remove-slot="1"
-                style="height:40px;">
-          Remove from Slot
-        </button>
-      `
+    ? `<button class="btn btn-secondary" type="button" data-remove-slot="1">Remove from Slot</button>`
     : "";
 
-  const costBreakdownHtml =
-    forDay && forMealSlot
-      ? renderWeeklyPooledCartSummary()
-      : renderRecipePreviewCostBreakdown(appState._lastOpenedRecipeId || r.id, portions);
+  const saveBadge = savings > 0
+    ? `<span class="rd-save-badge">Save ${escapeHtml(money(savings))} per recipe</span>`
+    : "";
 
   return `
-    <div style="display:flex; flex-direction:column; gap:14px;">
-      <div style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
-        <div>
-          <div style="font-size:18px; font-weight:900;">${escapeHtml(r.name)}</div>
-          ${slotContext}
-          <div style="margin-top:6px; font-size:12px; color: var(--text); opacity:.9;">${readiness}% Ingredients Ready</div>
+    <div class="rd-screen">
+
+      <div class="rd-hero">
+        <span class="rd-hero-emoji">${escapeHtml(r.emoji || "🍽️")}</span>
+      </div>
+
+      <div class="rd-head">
+        <h2 class="rd-title">${escapeHtml(r.name)}</h2>
+        ${saveBadge}
+        ${slotContext}
+      </div>
+
+      <div class="rd-meta">
+        <span class="rd-chip">🍝 Italian</span>
+        <span class="rd-chip">⏱ 30 min</span>
+        <span class="rd-chip">⭐ Easy</span>
+      </div>
+
+      <div class="rd-price-block">
+        <div class="rd-price-col">
+          <div class="rd-price-label">Restaurant</div>
+          <div class="rd-price-value rd-price-restaurant">${escapeHtml(money(restaurantPrice))}</div>
         </div>
-        <div style="text-align:right;">
-          <div style="font-size:12px; color: rgba(239,68,68,.9); font-weight:800;">Restaurant ${money(restaurantPrice)}</div>
-          <div style="font-size:12px; color: var(--text); font-weight:800;">Home ${money(homeCost)}</div>
-          <div style="font-size:16px; color: ${savingsColor}; font-weight:900;">SAVE ${money(savings)}</div>
+        <div class="rd-price-vs">VS</div>
+        <div class="rd-price-col">
+          <div class="rd-price-label">DarsNest Home</div>
+          <div class="rd-price-value rd-price-home">${escapeHtml(money(homeCost))}</div>
         </div>
       </div>
 
-      <div class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
-        <div style="font-weight:900; margin-bottom:8px;">Portions</div>
-        <div style="display:flex; gap:8px; align-items:center;">
-          <button class="btn btn-secondary" type="button" data-portion-minus="1" style="height:36px;">−</button>
-          <div style="min-width:60px; text-align:center; font-weight:900;">${escapeHtml(String(portions))}</div>
-          <button class="btn btn-secondary" type="button" data-portion-plus="1" style="height:36px;">+</button>
+      <div class="rd-portions">
+        <span class="rd-portions-label">Portions</span>
+        <div class="rd-portions-ctrl">
+          <button class="rd-portions-btn" type="button" data-portion-minus="1">−</button>
+          <span class="rd-portions-num">${escapeHtml(String(portions))}</span>
+          <button class="rd-portions-btn" type="button" data-portion-plus="1">+</button>
         </div>
       </div>
 
-      <div>
-        <div style="font-weight:900; margin-bottom:10px;">Ingredients</div>
-        <ul class="ingredients-list" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px;">
+      <div class="rd-tabs">
+        <button class="rd-tab active" type="button" data-tab="ingredients">Ingredients</button>
+        <button class="rd-tab" type="button" data-tab="steps">Steps</button>
+        <button class="rd-tab" type="button" data-tab="nutrition">Nutrition</button>
+      </div>
+
+      <div class="rd-panel active" data-panel="ingredients">
+        <ul class="rd-ing-list">
           ${ingredientsHtml}
         </ul>
       </div>
 
-      <div>
-        <div style="font-weight:900; margin-bottom:10px;">Steps</div>
-        <ol class="instructions-list" style="list-style:none; padding:0; margin:0;">
+      <div class="rd-panel" data-panel="steps">
+        <ol class="rd-steps-list">
           ${stepsHtml}
         </ol>
       </div>
 
+      <div class="rd-panel" data-panel="nutrition">
+        <div class="rd-nutrition-ph">
+          <span class="rd-nutrition-ph-icon">🥗</span>
+          <p class="rd-nutrition-ph-text">Nutrition info coming soon</p>
+        </div>
+      </div>
+
       ${renderChefMayaHelpBlock(chefMayaHelp)}
 
-      <details class="card" style="background: var(--surface); border:1px solid var(--divider); border-radius: var(--r); padding:12px;">
-        <summary style="cursor:pointer; font-weight:900;">Cost Breakdown</summary>
-        ${costBreakdownHtml}
-      </details>
-
-      <div style="display:flex; gap:10px;">
-        <button class="btn btn-primary" type="button" data-add-week-from-modal="1" data-recipe-id="${escapeAttr(appState._lastOpenedRecipeId || r.id)}" style="flex:1;">
+      <div class="rd-footer">
+        <button class="btn btn-primary rd-cta"
+                type="button"
+                data-add-week-from-modal="1"
+                data-recipe-id="${escapeAttr(appState._lastOpenedRecipeId || r.id)}">
           ${escapeHtml(primaryLabel)}
         </button>
         ${removeButton}
       </div>
+
     </div>
   `;
 }
