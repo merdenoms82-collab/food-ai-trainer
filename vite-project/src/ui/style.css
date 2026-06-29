@@ -1,39 +1,45 @@
 /* =========================================================
-   DarsNest UI System — Dark Mode v1 (LOCKED)
+   DarsNest UI System — D1 Violet
    Identity: Premium financial intelligence wrapped in food
-   Corners: 4px max radius
-   Accent: GREEN ONLY for savings numbers
-   Restaurant price: RED
+   Accent #A78BFA: logo, active nav, primary buttons, selection states ONLY
+   Savings: GREEN (#4ADE80) — never violet
+   Restaurant price: RED (#F87171) — never violet
    ========================================================= */
 
 /* ===== TOKENS ===== */
 :root{
-  /* Core palette (LOCKED) */
-  --bg: #0B0F1A;
-  --surface: #121826;
-  --surface-2: #1A2235;
-  --divider: #273046;
+  /* Core palette */
+  --bg:        #0F0D14;
+  --surface:   #1C1827;
+  --surface-2: #231F32;
+  --divider:   rgba(167,139,250,.16);
 
-  --text: #F1F5F9;
-  --muted: #9CA3AF;
+  --text:  #F2EFF9;
+  --muted: rgba(242,239,249,.45);
 
-  --save: #22C55E;     /* reserved for savings ONLY */
-  --loss: #EF4444;     /* restaurant / loss */
+  --save: #4ADE80;   /* reserved for savings ONLY — never violet */
+  --loss: #F87171;   /* restaurant / loss — never violet */
+
+  /* Brand accent — logo, active nav, primary buttons, selection states ONLY */
+  --accent:      #A78BFA;
+  --accent-bg:   rgba(167,139,250,.11);
+  --accent-glow: 0 0 18px rgba(167,139,250,.38);
 
   /* Layout */
-  --r: 4px;
+  --r: 14px;
   --pad: 24px;
   --gap: 16px;
 
   /* Type */
-  --font: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --font:   'Plus Jakarta Sans', 'Inter', system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  --font-h: 'Fraunces', serif;
 
   /* Motion */
   --ease: cubic-bezier(.2,.8,.2,1);
   --t: 160ms var(--ease);
 
-  /* Shadows (subtle) */
-  --shadow: 0 10px 30px rgba(0,0,0,.35);
+  /* Shadows */
+  --shadow: 0 2px 12px rgba(0,0,0,.28), 0 1px 2px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.035);
 }
 
 /* ===== BASE ===== */
@@ -55,7 +61,7 @@ a{ color: inherit; text-decoration:none; }
 button{ font-family: inherit; }
 i{ pointer-events:none; }
 
-::selection { background: rgba(34,197,94,.25); }
+::selection { background: rgba(167,139,250,.25); }
 
 /* Hide scrollbars but keep scroll */
 .page::-webkit-scrollbar{ width:0; height:0; }
@@ -106,15 +112,16 @@ i{ pointer-events:none; }
   width: 40px;
   height: 40px;
   border-radius: var(--r);
-  background: var(--surface-2);
-  border: 1px solid var(--divider);
+  background: var(--accent-bg);
+  border: 1px solid var(--accent);
   display:flex;
   align-items:center;
   justify-content:center;
-  color: var(--text);
+  color: var(--accent);
   font-size: 16px;
 }
 .logo-text{
+  font-family: var(--font-h);
   font-weight: 800;
   letter-spacing: .2px;
   font-size: 18px;
@@ -195,10 +202,11 @@ i{ pointer-events:none; }
   letter-spacing: .2px;
 }
 .tab-item.active{
-  color: var(--text);
+  color: var(--accent);
 }
 .tab-item.active .tab-icon{
   transform: translateY(-1px);
+  filter: drop-shadow(0 0 6px rgba(167,139,250,.55));
 }
 
 /* ===== COMMON UI ===== */
@@ -207,6 +215,7 @@ i{ pointer-events:none; }
   font-size: 20px;
   font-weight: 800;
   letter-spacing: .2px;
+  font-family: var(--font-h);
 }
 
 .section-header{
@@ -220,6 +229,7 @@ i{ pointer-events:none; }
   font-size: 16px;
   font-weight: 800;
   margin:0;
+  font-family: var(--font-h);
 }
 .section-subtitle{
   color: var(--muted);
@@ -258,13 +268,11 @@ i{ pointer-events:none; }
 .btn:active{ transform: scale(.98); background: rgba(255,255,255,.06); }
 
 .btn-primary{
-  /* NOTE: Do NOT use green here; green reserved for savings.
-     Primary buttons are neutral/white on dark surfaces. */
-  background: var(--text);
-  color: #0B0F1A;
-  border-color: rgba(241,245,249,.85);
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
 }
-.btn-primary:active{ background: rgba(241,245,249,.92); }
+.btn-primary:active{ background: rgba(167,139,250,.85); }
 
 .btn-secondary{
   background: var(--surface-2);
@@ -289,6 +297,7 @@ i{ pointer-events:none; }
   margin: 0 0 8px 0;
   font-size: 22px;
   font-weight: 900;
+  font-family: var(--font-h);
 }
 .welcome-card p{
   margin:0;
@@ -436,9 +445,9 @@ i{ pointer-events:none; }
   letter-spacing: .2px;
 }
 .category-tab.active{
-  color: var(--text);
-  background: var(--surface-2);
-  border-color: rgba(241,245,249,.12);
+  color: var(--accent);
+  background: var(--accent-bg);
+  border-color: rgba(167,139,250,.24);
 }
 
 .pantry-grid{
@@ -586,6 +595,7 @@ i{ pointer-events:none; }
 .scanner-title{
   font-size: 22px;
   font-weight: 900;
+  font-family: var(--font-h);
 }
 .scanner-subtitle{
   color: var(--muted);
@@ -613,8 +623,8 @@ i{ pointer-events:none; }
   background: transparent;
 }
 .recipes-tab.active{
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .recipes-tab-content{ display:none; }
@@ -668,7 +678,7 @@ i{ pointer-events:none; }
 
 /* Restaurant price = loss (red) */
 .recipe-restaurant{
-  color: rgba(239,68,68,.9);
+  color: var(--loss);
   font-weight: 800;
   font-size: 12px;
 }
@@ -818,7 +828,7 @@ i{ pointer-events:none; }
   font-weight: 900;
   color: var(--text);
 }
-.weekly-restaurant{ color: rgba(239,68,68,.9); }
+.weekly-restaurant{ color: var(--loss); }
 
 /* headline: YOU SAVE THIS WEEK (largest, green) */
 .weekly-headline{
@@ -832,6 +842,7 @@ i{ pointer-events:none; }
   font-weight: 900;
   color: var(--save);
   letter-spacing: .2px;
+  font-family: var(--font-h);
 }
 .weekly-disclaimer{
   margin-top: 6px;
@@ -963,7 +974,7 @@ i{ pointer-events:none; }
   width: 44px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(241,245,249,.25);
+  background: rgba(167,139,250,.18);
   margin: 0 auto 10px auto;
 }
 .modal-title{
@@ -1024,7 +1035,7 @@ i{ pointer-events:none; }
 }
 
 .staple-card.selected{
-  border-color: rgba(34,197,94,.35);
+  border-color: rgba(167,139,250,.35);
 }
 
 .staple-emoji{
@@ -1067,7 +1078,7 @@ i{ pointer-events:none; }
   opacity: 1;
 }
 .staple-card.selected{
-  border-color: rgba(34,197,94,.35);
+  border-color: rgba(167,139,250,.35);
   /* allowed: subtle outline, but DO NOT paint content green except checkmark */
 }
 .staple-emoji{ font-size: 22px; display:block; margin-bottom: 8px; }
