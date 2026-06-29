@@ -13,6 +13,7 @@ import { renderSelectionGrid } from "./SelectionGrid.jsx";
 import { GUIDED_PANTRY_CATALOG } from "../data/pantryCatalog.js";
 import { pantryStaplesDatabase } from "../data/pantryStaples.js";
 import { recipeSeed } from "../data/recipeSeed.js";
+import { recipePresentationById } from "../state/recipePresentation.js";
 
 /* =========================================================
    DarsNest AI Kitchen OS — app.js
@@ -1834,11 +1835,16 @@ function renderRecipeExecutionScreen(r, { forDay = null, forMealSlot = null, por
     ? `<span class="rd-save-badge">Save ${escapeHtml(money(savings))} per recipe</span>`
     : "";
 
+  const heroImageUrl = recipePresentationById[r.id]?.image_url || "";
+
   return `
     <div class="rd-screen">
 
       <div class="rd-hero">
-        <span class="rd-hero-emoji">${escapeHtml(r.emoji || "🍽️")}</span>
+        ${heroImageUrl
+          ? `<img class="rd-hero-img" src="${escapeHtml(heroImageUrl)}" alt="${escapeHtml(r.name)}" loading="lazy" decoding="async">`
+          : `<span class="rd-hero-emoji">${escapeHtml(r.emoji || "🍽️")}</span>`
+        }
       </div>
 
       <div class="rd-head">

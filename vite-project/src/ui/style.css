@@ -351,6 +351,13 @@ i{ pointer-events:none; }
 .action-card:active{ transform: scale(.99); background: rgba(255,255,255,.04); }
 .action-title{ font-weight: 900; font-size: 14px; }
 .action-subtitle{ margin-top: 6px; color: var(--muted); font-size: 12px; }
+.action-icon{
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  display: block;
+  margin-bottom: 10px;
+}
 
 /* Pantry preview items */
 .pantry-items{
@@ -1209,8 +1216,18 @@ i{ pointer-events:none; }
   justify-content: center;
   margin: -14px -14px 0 -14px;
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
 }
 .rd-hero-emoji{ font-size: 72px; line-height: 1; }
+.rd-hero-img{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 
 /* Head */
 .rd-head{
