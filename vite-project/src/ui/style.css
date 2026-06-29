@@ -288,7 +288,7 @@ i{ pointer-events:none; }
 
 /* ===== HOME PAGE ===== */
 .welcome-card{
-  background: var(--surface);
+  background-color: var(--surface);
   border: 1px solid var(--divider);
   border-radius: var(--r);
   padding: 16px;
@@ -349,7 +349,7 @@ i{ pointer-events:none; }
   transition: transform var(--t), background var(--t);
 }
 .action-card:active{ transform: scale(.99); background: rgba(255,255,255,.04); }
-.action-title{ font-weight: 900; font-size: 14px; }
+.action-title{ font-weight: 900; font-size: 14px; color: var(--accent); }
 .action-subtitle{ margin-top: 6px; color: var(--muted); font-size: 12px; }
 .action-icon{
   width: 36px;
