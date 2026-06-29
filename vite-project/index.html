@@ -25,6 +25,16 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
 
   <!-- Your CSS -->
+  <style>
+  .welcome-card{
+    background-image:
+      linear-gradient(to right,rgba(15,13,20,.92) 0%,rgba(15,13,20,.60) 50%,rgba(15,13,20,.15) 100%),
+      url(%BASE_URL%images/home-hero.png);
+    background-size:cover;
+    background-position:center right;
+    min-height:120px;
+  }
+  </style>
 </head>
 
 <body>
@@ -102,21 +112,25 @@
         <!-- Quick Actions -->
         <div class="quick-actions">
           <button class="action-card" type="button" data-action="scan">
+            <img class="action-icon" src="%BASE_URL%images/icon-smart-scan.png" alt="">
             <div class="action-title">Smart Scan</div>
             <div class="action-subtitle">AI-powered detection</div>
           </button>
 
           <button class="action-card" type="button" data-action="pantry-staples">
+            <img class="action-icon" src="%BASE_URL%images/icon-pantry-staples.png" alt="">
             <div class="action-title">Pantry Staples</div>
             <div class="action-subtitle">Quick add basics</div>
           </button>
 
           <button class="action-card" type="button" data-action="recipes">
+            <img class="action-icon" src="%BASE_URL%images/icon-recipes.png" alt="">
             <div class="action-title">Recipes</div>
             <div class="action-subtitle">Savings-first picks</div>
           </button>
 
           <button class="action-card" type="button" data-action="shopping">
+            <img class="action-icon" src="%BASE_URL%images/icon-shopping.png" alt="">
             <div class="action-title">Shopping</div>
             <div class="action-subtitle">Auto list & totals</div>
           </button>
