@@ -905,17 +905,10 @@ function buildEffectiveEngineInputs(state) {
 function computeRecipePreviewPricing(recipe, state, portions = DEFAULT_PORTIONS) {
   const previewRecipe = scaleRecipeForEngine(recipe, portions);
   const adaptedRecipes = adaptRecipesForWeeklyEngine([previewRecipe]);
-  const adaptedPantry = adaptPantryItemsForEngine(state);
-  const adaptedOverrides = adaptIngredientAvailabilityOverridesForEngine(state, [previewRecipe]);
-  const effectivePantryItems = [
-    ...adaptedPantry.pantryItems,
-    ...adaptedOverrides.pantryItems,
-  ];
 
-  const acceptedIngredientCount =
-    adaptedRecipes?.recipes?.[0]?.ingredients?.length ?? 0;
+  const acceptedIngredients = adaptedRecipes?.recipes?.[0]?.ingredients ?? [];
 
-  if (!acceptedIngredientCount) {
+  if (!acceptedIngredients.length) {
     const restaurantPrice = Number(previewRecipe?.restaurantPrice ?? recipe?.restaurantPrice ?? 0);
     const homeCost = Number(previewRecipe?.homeCost ?? recipe?.homeCost ?? 0);
 
@@ -926,24 +919,20 @@ function computeRecipePreviewPricing(recipe, state, portions = DEFAULT_PORTIONS)
     };
   }
 
-  const result = computeWeeklySavingsEngineV1({
-    recipes: adaptedRecipes.recipes,
-    ingredientMaster,
-    pantryItems: effectivePantryItems,
-  });
+  // Per-unit proration: qty × (package_price / package_size).
+  // Pantry staples (same set as weekly plan) cost $0 — assumed already owned.
+  const stapleIds = new Set(buildAutoStaplePantryItems().map((p) => p.ingredient_id));
+  let rawHomeCost = 0;
+  for (const ing of acceptedIngredients) {
+    if (stapleIds.has(ing.ingredient_id)) continue;
+    const master = ingredientMaster[ing.ingredient_id];
+    if (!master) continue;
+    rawHomeCost += ing.qty * (master.package_price / master.package_size);
+  }
+  const homeCost = Math.round((rawHomeCost + Number.EPSILON) * 100) / 100;
 
-  const weekly = result?.weeklyTotals ?? {};
   const restaurantPrice = Number(
-    weekly.restaurant_total ??
-    previewRecipe?.restaurantPrice ??
-    recipe?.restaurantPrice ??
-    0
-  );
-  const homeCost = Number(
-    weekly.home_total_out_of_pocket ??
-    previewRecipe?.homeCost ??
-    recipe?.homeCost ??
-    0
+    previewRecipe?.restaurantPrice ?? recipe?.restaurantPrice ?? 0
   );
 
   return {

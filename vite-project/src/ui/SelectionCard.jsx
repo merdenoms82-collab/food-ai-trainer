@@ -140,9 +140,11 @@ export default function SelectionCard({ recipe }) {
           <span className="dn-card__value">{money(homeCost)}</span>
         </div>
 
-        <div className="dn-card__savings" aria-label="Savings">
-          YOU SAVE <span className="dn-card__savingsNum">{money(savings)}</span>
-        </div>
+        {savings > 0 && (
+          <div className="dn-card__savings" aria-label="Savings">
+            YOU SAVE <span className="dn-card__savingsNum">{money(savings)}</span>
+          </div>
+        )}
 
         <div className="dn-card__readiness">
           {readiness}% Ingredients Ready
