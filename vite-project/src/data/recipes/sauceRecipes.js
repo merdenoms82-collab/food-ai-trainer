@@ -57,7 +57,7 @@ export const sauceRecipes = [
       { name: "Beef Broth", qty: "2 cups", key: "beef broth" },
       { name: "Tomato Paste", qty: "2 tbsp", key: "tomato paste" },
       { name: "Onion", qty: "1/2 whole", key: "onion" },
-      { name: "Carrots", qty: "1 whole", key: "carrots" },
+      { name: "Carrots", qty: "0.25 lb", key: "carrots" },
       { name: "Celery", qty: "1 stalk", key: "celery" },
       { name: "Salt", qty: "1/2 tsp", key: "salt" },
       { name: "Black Pepper", qty: "1/4 tsp", key: "black pepper" },

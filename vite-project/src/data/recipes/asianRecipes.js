@@ -55,7 +55,7 @@ export const asianRecipes = [
       { name: "Rice", qty: "2 cups", key: "rice" },
       { name: "Eggs", qty: "2 whole", key: "eggs" },
       { name: "Frozen Peas", qty: "1 cup", key: "frozen peas" },
-      { name: "Carrots", qty: "1 cup", key: "carrots" },
+      { name: "Carrots", qty: "0.25 lb", key: "carrots" },
       { name: "Soy Sauce", qty: "3 tbsp", key: "soy sauce" },
     ],
     steps: [
