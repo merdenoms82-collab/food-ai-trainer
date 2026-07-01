@@ -54,7 +54,7 @@ export const americanRecipes = [
       { name: "Sloppy Joe Sauce", qty: "1 can", key: "sloppy joe sauce" },
       { name: "Onion", qty: "1 whole", key: "onion" },
       { name: "Frozen French Fries", qty: "1 bag", key: "frozen french fries" },
-      { name: "Pickles", qty: "1 jar", key: "pickles" },
+      { name: "Pickles", qty: "32 tbsp", key: "pickles" },
     ],
     steps: [
       "Cook beef and onion together.",
@@ -76,7 +76,7 @@ export const americanRecipes = [
       { name: "Hamburger Buns", qty: "1 pack", key: "hamburger buns" },
       { name: "Coleslaw Mix", qty: "1 bag", key: "coleslaw mix" },
       { name: "Mayonnaise", qty: "1/4 cup", key: "mayonnaise" },
-      { name: "Pickles", qty: "1 jar", key: "pickles" },
+      { name: "Pickles", qty: "32 tbsp", key: "pickles" },
     ],
     steps: [
       "Cook and shred the chicken.",

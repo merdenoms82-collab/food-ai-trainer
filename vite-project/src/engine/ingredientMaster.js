@@ -96,7 +96,7 @@ export const ingredientMaster = {
   honey:           { id: "honey",           base_unit: "tbsp",  package_size: 16,  package_price: 6.00 },
   "maple syrup":   { id: "maple syrup",     base_unit: "bottle",package_size: 1,   package_price: 8.00 },
   "bbq sauce":     { id: "bbq sauce",       base_unit: "bottle",package_size: 1,   package_price: 3.50 },
-  pickles:         { id: "pickles",         base_unit: "jar",   package_size: 1,   package_price: 3.50 },
+  pickles:         { id: "pickles",         base_unit: "tbsp",  package_size: 32,  package_price: 3.50 },
   "soy sauce":     { id: "soy sauce",       base_unit: "tbsp",  package_size: 30,  package_price: 3.50 },
   "teriyaki sauce":{ id: "teriyaki sauce",  base_unit: "cup",   package_size: 2,   package_price: 4.00 },
   "adobo sauce":   { id: "adobo sauce",     base_unit: "tbsp",  package_size: 7,   package_price: 2.50 },
